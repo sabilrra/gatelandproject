@@ -103,16 +103,17 @@ class _UbahKataSandiScreenState extends State<UbahKataSandiScreen> {
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
                     child: Container(
-                      width: 40,
-                      height: 40,
+                      width: 38,
+                      height: 38,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFEEF0FA),
-                        borderRadius: BorderRadius.circular(12),
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFE8E8F0), width: 1.5),
                       ),
-                      child: const Icon(
-                        Icons.arrow_back,
-                        color: Colors.black87,
-                        size: 20,
+                      child: Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        color: _primaryColor,
+                        size: 16,
                       ),
                     ),
                   ),

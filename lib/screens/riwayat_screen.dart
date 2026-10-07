@@ -448,10 +448,8 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
             Navigator.pushNamed(context, '/dashboard');
           } else if (index == 1) {
             Navigator.pushNamed(context, '/tagihan');
-          } else if (index == 3) {
-            Navigator.pushNamed(context, '/profile');
-          }
-        },
+        }
+          },
         backgroundColor: Colors.white,
         selectedItemColor: _primary,
         unselectedItemColor: Colors.black54,
@@ -473,11 +471,6 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
             icon: Icon(Icons.history_outlined),
             activeIcon: Icon(Icons.history),
             label: 'Riwayat',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: 'Profil',
           ),
         ],
       ),

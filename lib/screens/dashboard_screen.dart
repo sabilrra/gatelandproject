@@ -379,9 +379,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Navigator.pushNamed(context, '/tagihan');
             } else if (index == 2) {
               Navigator.pushNamed(context, '/riwayat');
-            } else if (index == 3) {
-              Navigator.pushNamed(context, '/profile');
-            }
+          }
           },
           backgroundColor: Colors.white,
           selectedItemColor: _primaryColor,
@@ -402,11 +400,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             BottomNavigationBarItem(
               icon: Icon(Icons.history),
               label: 'Riwayat',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline),
-              activeIcon: Icon(Icons.person),
-              label: 'Profil',
             ),
           ],
         ),
