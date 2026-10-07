@@ -49,7 +49,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   Row(
                     children: [
-                      Icon(Icons.notifications_none_outlined, color: Colors.black87, size: 26),
+                      GestureDetector(
+                        onTap: () => Navigator.pushNamed(context, '/notifikasi'),
+                        child: const Icon(Icons.notifications_none_outlined, color: Colors.black87, size: 26),
+                      ),
                       const SizedBox(width: 16),
                       CircleAvatar(
                         radius: 16,
@@ -182,7 +185,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          Navigator.pushNamed(context, '/tagihan');
+                        },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _primaryColor,
                           padding: const EdgeInsets.symmetric(vertical: 14),
@@ -335,6 +340,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             setState(() {
               _currentIndex = index;
             });
+            if (index == 1) {
+              Navigator.pushNamed(context, '/tagihan');
+            } else if (index == 2) {
+              Navigator.pushNamed(context, '/riwayat');
+            }
           },
           backgroundColor: Colors.white,
           selectedItemColor: _primaryColor,
@@ -446,24 +456,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
               color: const Color(0xFFF0F0FF),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(icon, color: _primaryColor, size: 18),
+            child: Icon(icon, color: _primaryColor, size: 20),
           ),
-          const Spacer(),
+          const SizedBox(height: 12),
           Text(
             title,
             style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
               color: _primaryColor,
-              height: 1.2,
+              height: 1.3,
+              letterSpacing: 0.1,
             ),
-            maxLines: 2,
+            maxLines: 3,
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           _buildAgendaInfoRow(Icons.calendar_today_outlined, date),
-          const SizedBox(height: 4),
+          const SizedBox(height: 5),
           _buildAgendaInfoRow(Icons.access_time, time),
-          const SizedBox(height: 4),
+          const SizedBox(height: 5),
           _buildAgendaInfoRow(Icons.location_on_outlined, location),
         ],
       ),

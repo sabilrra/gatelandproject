@@ -4,6 +4,12 @@ import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/chatbot_screen.dart';
+import 'screens/tagihan_screen.dart';
+import 'screens/pembayaran_screen.dart';
+import 'screens/konfirmasi_pembayaran_screen.dart';
+import 'screens/kwitansi_screen.dart';
+import 'screens/riwayat_screen.dart';
+import 'screens/notifikasi_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -28,6 +34,12 @@ class MyApp extends StatelessWidget {
         '/register': (context) => const RegisterScreen(),
         '/dashboard': (context) => const DashboardScreen(),
         '/chatbot': (context) => const ChatbotScreen(),
+        '/tagihan': (context) => const TagihanScreen(),
+        '/pembayaran': (context) => const PembayaranScreen(),
+        '/konfirmasi_pembayaran': (context) => const KonfirmasiPembayaranScreen(),
+        '/kwitansi': (context) => const KwitansiScreen(),
+        '/riwayat': (context) => const RiwayatScreen(),
+        '/notifikasi': (context) => const NotifikasiScreen(),
       },
     );
   }
