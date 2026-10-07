@@ -53,11 +53,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         onTap: () => Navigator.pushNamed(context, '/notifikasi'),
                         child: const Icon(Icons.notifications_none_outlined, color: Colors.black87, size: 26),
                       ),
-                      const SizedBox(width: 16),
-                      CircleAvatar(
-                        radius: 16,
-                        backgroundColor: const Color(0xFFFFD1D1),
-                        child: Icon(Icons.person, color: _primaryColor, size: 20),
+                      const SizedBox(width: 14),
+                      GestureDetector(
+                        onTap: () async {
+                          await Navigator.pushNamed(context, '/profile');
+                          setState(() {});
+                        },
+                        child: MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: Tooltip(
+                            message: 'Buka Profil',
+                            child: Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(color: _primaryColor.withValues(alpha: 0.3), width: 1.5),
+                              ),
+                              child: const CircleAvatar(
+                                radius: 18,
+                                backgroundColor: Color(0xFFFFD1D1),
+                                backgroundImage: AssetImage('assets/profile_avatar.jpg'),
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -65,29 +84,44 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               const SizedBox(height: 24),
 
-              // 2. Header
+              // 2. Header (Clickable to open profile)
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Halo, $firstName!',
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w800,
-                          color: _primaryColor,
-                          letterSpacing: -0.5,
-                        ),
+                  GestureDetector(
+                    onTap: () async {
+                      await Navigator.pushNamed(context, '/profile');
+                      setState(() {});
+                    },
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                'Halo, $firstName!',
+                                style: TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.w800,
+                                  color: _primaryColor,
+                                  letterSpacing: -0.5,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Icon(Icons.arrow_forward_ios, size: 14, color: _primaryColor.withValues(alpha: 0.6)),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Selamat Datang di GateLand (Lihat Profil)',
+                            style: TextStyle(fontSize: 13, color: Colors.black87),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Selamat Datang di GateLand',
-                        style: TextStyle(fontSize: 13, color: Colors.black87),
-                      ),
-                    ],
+                    ),
                   ),
                   GestureDetector(
                     onTap: () {
@@ -335,6 +369,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
         child: BottomNavigationBar(
+          type: BottomNavigationBarType.fixed,
           currentIndex: _currentIndex,
           onTap: (index) {
             setState(() {
@@ -344,6 +379,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Navigator.pushNamed(context, '/tagihan');
             } else if (index == 2) {
               Navigator.pushNamed(context, '/riwayat');
+            } else if (index == 3) {
+              Navigator.pushNamed(context, '/profile');
             }
           },
           backgroundColor: Colors.white,
@@ -365,6 +402,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             BottomNavigationBarItem(
               icon: Icon(Icons.history),
               label: 'Riwayat',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person_outline),
+              activeIcon: Icon(Icons.person),
+              label: 'Profil',
             ),
           ],
         ),

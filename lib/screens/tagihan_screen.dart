@@ -179,12 +179,15 @@ class _TagihanScreenState extends State<TagihanScreen> {
           ],
         ),
         child: BottomNavigationBar(
+          type: BottomNavigationBarType.fixed,
           currentIndex: 1,
           onTap: (index) {
             if (index == 0) {
               Navigator.pushNamed(context, '/dashboard');
             } else if (index == 2) {
               Navigator.pushNamed(context, '/riwayat');
+            } else if (index == 3) {
+              Navigator.pushNamed(context, '/profile');
             }
           },
           backgroundColor: Colors.white,
@@ -206,6 +209,11 @@ class _TagihanScreenState extends State<TagihanScreen> {
             BottomNavigationBarItem(
               icon: Icon(Icons.history),
               label: 'Riwayat',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person_outline),
+              activeIcon: Icon(Icons.person),
+              label: 'Profil',
             ),
           ],
         ),

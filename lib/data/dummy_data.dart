@@ -4,11 +4,11 @@
 /// fungsi login serta registrasi sederhana.
 
 class UserData {
-  final String nama;
-  final String email;
-  final String noWhatsapp;
-  final String alamat;
-  final String password;
+  String nama;
+  String email;
+  String noWhatsapp;
+  String alamat;
+  String password;
 
   UserData({
     required this.nama,
@@ -19,11 +19,54 @@ class UserData {
   });
 }
 
+class UserProfile {
+  String nik;
+  String ttl;
+  String statusKependudukan;
+  String jumlahKeluarga;
+  String kontakDarurat;
+  String namaKontakDarurat;
+  String unit;
+  String cluster;
+  String wilayahRW;
+  String statusKepemilikan;
+  String dayaListrik;
+  String kendaraan;
+  String kendaraanTambahan;
+  bool notifikasiTagihan;
+  bool pengingatWA;
+  String statusPenghuni; // 'Pemilik Rumah' atau 'Penyewa / Kontrak'
+  String fotoUrl;
+
+  UserProfile({
+    this.nik = '3271 0454 0588 0004',
+    this.ttl = 'Bandung, 14 Mei 1988',
+    this.statusKependudukan = 'Warga Tetap',
+    this.jumlahKeluarga = '4 Jiwa (2 Dewasa, 2 Anak)',
+    this.kontakDarurat = '0812-9876-5432',
+    this.namaKontakDarurat = 'Budi Santoso (Suami)',
+    this.unit = 'Unit 1',
+    this.cluster = 'Cluster Anggrek, Blok B2 No. 14',
+    this.wilayahRW = 'RT 04 / RW 08, GateLand',
+    this.statusKepemilikan = 'Pemilik Rumah (SHM)',
+    this.dayaListrik = 'PLN 3.500 VA • PDAM Tirta',
+    this.kendaraan = '1 Mobil (B 1234 DT)',
+    this.kendaraanTambahan = '2 Sepeda Motor (Stiker Aktif)',
+    this.notifikasiTagihan = true,
+    this.pengingatWA = true,
+    this.statusPenghuni = 'Pemilik Rumah',
+    this.fotoUrl = 'assets/profile_avatar.jpg',
+  });
+}
+
 class DummyDataStore {
   // Singleton pattern agar data tetap konsisten di seluruh aplikasi
   static final DummyDataStore _instance = DummyDataStore._internal();
   factory DummyDataStore() => _instance;
   DummyDataStore._internal();
+
+  // Profile data
+  final UserProfile profile = UserProfile();
 
   // Daftar user dummy yang sudah terdaftar
   final List<UserData> _users = [
@@ -85,4 +128,15 @@ class DummyDataStore {
 
   // Menyimpan user yang sedang login (session sederhana)
   UserData? currentUser;
+
+  UserData get activeUser {
+    if (currentUser != null) return currentUser!;
+    return UserData(
+      nama: 'Azizah Pratama',
+      email: 'azizah.putri@gateland.id',
+      noWhatsapp: '0812-3456-7890',
+      alamat: 'Cluster Anggrek, Blok B2 No. 14',
+      password: 'password123',
+    );
+  }
 }

@@ -10,10 +10,10 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController(text: 'azizah.putri@gateland.id');
+  final TextEditingController _passwordController = TextEditingController(text: 'password123');
   bool _obscurePassword = true;
-  bool _rememberMe = false;
+  bool _rememberMe = true;
 
   final Color _primaryColor = const Color(0xFF09095E);
   final Color _bgColor = const Color(0xFFF9FAFF);
@@ -22,26 +22,10 @@ class _LoginScreenState extends State<LoginScreen> {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
-    if (email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Email dan Password wajib diisi')),
-      );
-      return;
-    }
-
-    // Cek kredensial dengan dummy data
-    final user = DummyDataStore().login(email, password);
-    if (user != null) {
-      DummyDataStore().currentUser = user;
-      Navigator.pushReplacementNamed(context, '/dashboard');
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Email atau Password salah. Coba: budi@gateland.com / budi1234'),
-          duration: Duration(seconds: 3),
-        ),
-      );
-    }
+    // Login dengan data yang cocok atau default activeUser
+    final user = DummyDataStore().login(email, password) ?? DummyDataStore().activeUser;
+    DummyDataStore().currentUser = user;
+    Navigator.pushReplacementNamed(context, '/dashboard');
   }
 
   @override
@@ -193,18 +177,9 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 16),
 
               // Password Field
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Password',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                  ),
-                  Text(
-                    'Lupa Password?',
-                    style: TextStyle(fontSize: 12, color: _primaryColor),
-                  ),
-                ],
+              const Text(
+                'Password',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               TextField(
@@ -236,26 +211,44 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 12),
 
-              // Remember Me
+              // Remember Me & Lupa Kata Sandi
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: Checkbox(
-                      value: _rememberMe,
-                      onChanged: (val) {
-                        setState(() {
-                          _rememberMe = val ?? false;
-                        });
-                      },
-                      shape: const CircleBorder(),
-                      activeColor: _primaryColor,
-                      side: const BorderSide(color: Color(0xFFD0D0D0), width: 1.5),
+                  Row(
+                    children: [
+                      SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: Checkbox(
+                          value: _rememberMe,
+                          onChanged: (val) {
+                            setState(() {
+                              _rememberMe = val ?? false;
+                            });
+                          },
+                          shape: const CircleBorder(),
+                          activeColor: _primaryColor,
+                          side: const BorderSide(color: Color(0xFFD0D0D0), width: 1.5),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Text('Ingat Saya', style: TextStyle(fontSize: 13, color: Colors.black87)),
+                    ],
+                  ),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.pushNamed(context, '/lupa-kata-sandi');
+                    },
+                    child: Text(
+                      'Lupa Kata Sandi?',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: _primaryColor,
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  const Text('Ingat Saya', style: TextStyle(fontSize: 13, color: Colors.black87)),
                 ],
               ),
               const SizedBox(height: 24),
