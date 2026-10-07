@@ -1,8 +1,8 @@
 # GateLand- Aplikasi Pengelolaan Perumahan Terpadu 
 
-GateLand adalah sistem manajemen perumahan digital yang dirancang untuk menggantikan proses administrasi manual yang lambat dan rentan kesalahan (seperti pencatatan iuran via spreadsheet dan komunikasi via WhatsApp)[cite: 14, 16, 17]. 
+GateLand adalah sistem manajemen perumahan digital yang dirancang untuk menggantikan proses administrasi manual yang lambat dan rentan kesalahan (seperti pencatatan iuran via spreadsheet dan komunikasi via WhatsApp). 
 
-Proyek ini dibangun untuk menghubungkan Pengelola Properti dan Warga melalui dua ekosistem yang terintegrasi: **Dashboard Web (Admin)** dan **Mobile Application (Warga)**[cite: 12].
+Proyek ini dibangun untuk menghubungkan Pengelola Properti dan Warga melalui dua ekosistem yang terintegrasi: **Dashboard Web (Admin)** dan **Mobile Application (Warga)**.
 
 ## 👥 Tim Pengembang (Joker Team)
 Proyek UTS ini dirancang dan dikembangkan oleh:
