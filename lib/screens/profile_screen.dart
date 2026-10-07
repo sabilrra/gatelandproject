@@ -694,19 +694,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: const TextStyle(fontSize: 11, color: Colors.black54),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 11, color: Colors.black54),
+            ),
           ),
+          const SizedBox(width: 8),
           if (customValue != null)
             customValue
           else
-            Text(
-              value ?? '',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: valueBold ? FontWeight.w700 : FontWeight.w600,
-                color: Colors.black87,
+            Flexible(
+              child: Text(
+                value ?? '',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: valueBold ? FontWeight.w700 : FontWeight.w600,
+                  color: Colors.black87,
+                ),
+                textAlign: TextAlign.end,
               ),
             ),
         ],
