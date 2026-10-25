@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../data/dummy_data.dart';
+import '../services/api_service.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({Key? key}) : super(key: key);
@@ -18,12 +19,55 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   bool _obscurePassword = true;
   bool _agreeTerms = false;
+  bool _isLoading = false;
+  String? _emailError;
+  String? _passwordError;
 
   final Color _primaryColor = const Color(0xFF09095E);
   final Color _bgColor = const Color(0xFFF9FAFF);
   final Color _fieldColor = const Color(0xFFF4F5FB);
 
-  void _register() {
+  // ─── Validasi email @gmail.com ─────────────────────────────
+  String? _validateEmail(String email) {
+    if (email.isEmpty) return 'Email wajib diisi.';
+    if (!email.endsWith('@gmail.com')) return 'Email harus menggunakan @gmail.com';
+    final regex = RegExp(r'^[^\s@]+@gmail\.com$');
+    if (!regex.hasMatch(email)) return 'Format email tidak valid.';
+    return null;
+  }
+
+  // ─── Validasi password kuat ────────────────────────────────
+  String? _validatePassword(String password) {
+    if (password.isEmpty) return 'Password wajib diisi.';
+    if (password.length < 8) return 'Password minimal 8 karakter.';
+    if (!RegExp(r'[A-Z]').hasMatch(password)) {
+      return 'Password harus ada huruf kapital (A-Z).';
+    }
+    if (!RegExp(r'[0-9]').hasMatch(password)) {
+      return 'Password harus ada angka (0-9).';
+    }
+    if (!RegExp(r'[^A-Za-z0-9]').hasMatch(password)) {
+      return 'Password harus ada simbol (contoh: !@#\$%-_).';
+    }
+    return null;
+  }
+
+  // ─── Auto-append @gmail.com saat ketik ─────────────────────
+  void _onEmailChanged(String value) {
+    if (value.isNotEmpty && !value.contains('@')) {
+      final newText = '$value@gmail.com';
+      _emailController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: value.length),
+      );
+    }
+    setState(() {
+      _emailError = null;
+    });
+  }
+
+  // ─── Register ──────────────────────────────────────────────
+  Future<void> _register() async {
     if (_nameController.text.trim().isEmpty ||
         _emailController.text.trim().isEmpty ||
         _phoneController.text.trim().isEmpty ||
@@ -35,12 +79,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    if (_passwordController.text.trim().length < 8) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Kata sandi minimal 8 karakter')),
-      );
-      return;
-    }
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    // Client-side validation
+    final eErr = _validateEmail(email);
+    final pErr = _validatePassword(password);
+    setState(() {
+      _emailError = eErr;
+      _passwordError = pErr;
+    });
+    if (eErr != null || pErr != null) return;
 
     if (!_agreeTerms) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -49,28 +98,72 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    final newUser = UserData(
-      nama: _nameController.text.trim(),
-      email: _emailController.text.trim(),
-      noWhatsapp: '+62${_phoneController.text.trim()}',
-      alamat: _addressController.text.trim(),
-      password: _passwordController.text.trim(),
-    );
+    setState(() => _isLoading = true);
 
-    final success = DummyDataStore().register(newUser);
+    try {
+      final res = await ApiService.register(
+        name: _nameController.text.trim(),
+        email: email,
+        password: password,
+      );
 
-    if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Registrasi Berhasil! Silakan login dengan akun baru Anda.'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-      Navigator.pop(context);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Email sudah terdaftar. Gunakan email lain.')),
-      );
+      if (!mounted) return;
+
+      if (res['status'] == 'success') {
+        // Juga simpan di DummyDataStore sebagai fallback
+        final newUser = UserData(
+          nama: _nameController.text.trim(),
+          email: email,
+          noWhatsapp: '+62${_phoneController.text.trim()}',
+          alamat: _addressController.text.trim(),
+          password: password,
+        );
+        DummyDataStore().register(newUser);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Registrasi Berhasil! Silakan login dengan akun baru Anda.'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+        Navigator.pop(context);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(res['message'] ?? 'Registrasi gagal.'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        // Fallback ke DummyDataStore lokal jika backend tidak tersedia
+        final newUser = UserData(
+          nama: _nameController.text.trim(),
+          email: email,
+          noWhatsapp: '+62${_phoneController.text.trim()}',
+          alamat: _addressController.text.trim(),
+          password: password,
+        );
+        final success = DummyDataStore().register(newUser);
+
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Registrasi Berhasil (offline)! Silakan login.'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+          Navigator.pop(context);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Email sudah terdaftar.')),
+          );
+        }
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -223,16 +316,49 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const Text('Email', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black87)),
-                          Text('Kirim OTP', style: TextStyle(fontSize: 11, color: _primaryColor, fontWeight: FontWeight.w700)),
+                          Text('Harus @gmail.com', style: TextStyle(fontSize: 11, color: _primaryColor, fontWeight: FontWeight.w700)),
                         ],
                       ),
                       const SizedBox(height: 8),
-                      _buildTextField(
+                      TextField(
                         controller: _emailController,
-                        hintText: 'nama@email.com',
-                        icon: Icons.email_outlined,
+                        onChanged: _onEmailChanged,
+                        decoration: InputDecoration(
+                          hintText: 'nama@gmail.com',
+                          hintStyle: const TextStyle(color: Colors.black38, fontSize: 14),
+                          prefixIcon: const Icon(Icons.email_outlined, color: Colors.black54, size: 20),
+                          suffixText: '@gmail.com',
+                          suffixStyle: TextStyle(
+                            color: _primaryColor.withOpacity(0.5),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          filled: true,
+                          fillColor: _fieldColor,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: _emailError != null
+                                ? const BorderSide(color: Colors.redAccent, width: 1.5)
+                                : BorderSide.none,
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: _emailError != null
+                                ? const BorderSide(color: Colors.redAccent, width: 1.5)
+                                : BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
                         keyboardType: TextInputType.emailAddress,
                       ),
+                      if (_emailError != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6, left: 4),
+                          child: Text(
+                            _emailError!,
+                            style: const TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.w500),
+                          ),
+                        ),
                       const SizedBox(height: 16),
 
                       // WhatsApp
@@ -290,6 +416,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       TextField(
                         controller: _passwordController,
                         obscureText: _obscurePassword,
+                        onChanged: (_) => setState(() => _passwordError = null),
                         decoration: InputDecoration(
                           hintText: 'Buat kata sandi akun',
                           hintStyle: const TextStyle(color: Colors.black38, fontSize: 14),
@@ -310,20 +437,36 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           fillColor: _fieldColor,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
+                            borderSide: _passwordError != null
+                                ? const BorderSide(color: Colors.redAccent, width: 1.5)
+                                : BorderSide.none,
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: _passwordError != null
+                                ? const BorderSide(color: Colors.redAccent, width: 1.5)
+                                : BorderSide.none,
                           ),
                           contentPadding: const EdgeInsets.symmetric(vertical: 16),
                         ),
                       ),
-                      const Padding(
-                        padding: EdgeInsets.only(top: 8, left: 4),
+                      if (_passwordError != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6, left: 4),
+                          child: Text(
+                            _passwordError!,
+                            style: const TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.w500),
+                          ),
+                        ),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8, left: 4),
                         child: Row(
                           children: [
-                            Icon(Icons.info_outline, size: 14, color: Color(0xFF09095E)),
-                            SizedBox(width: 4),
-                            Expanded(
+                            Icon(Icons.info_outline, size: 14, color: _primaryColor),
+                            const SizedBox(width: 4),
+                            const Expanded(
                               child: Text(
-                                'Minimal 8 karakter kombinasi huruf & angka',
+                                'Min 8 karakter, huruf kapital, angka & simbol wajib',
                                 style: TextStyle(fontSize: 11, color: Colors.black54),
                               ),
                             ),
@@ -381,7 +524,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                       // Register Button
                       ElevatedButton(
-                        onPressed: _register,
+                        onPressed: _isLoading ? null : _register,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _primaryColor,
                           padding: const EdgeInsets.symmetric(vertical: 16),
@@ -389,17 +532,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'Daftar Sekarang',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-                            ),
-                            SizedBox(width: 8),
-                            Icon(Icons.arrow_forward, size: 18, color: Colors.white),
-                          ],
-                        ),
+                        child: _isLoading
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    'Daftar Sekarang',
+                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                                  ),
+                                  SizedBox(width: 8),
+                                  Icon(Icons.arrow_forward, size: 18, color: Colors.white),
+                                ],
+                              ),
                       ),
                       const SizedBox(height: 40), // extra padding at bottom
                     ],
