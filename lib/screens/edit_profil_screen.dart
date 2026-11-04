@@ -20,7 +20,7 @@ class _EditProfilScreenState extends State<EditProfilScreen> {
   late TextEditingController _emergencyPhoneController;
 
   String _statusPenghuni = 'Pemilik Rumah';
-  String _selectedKendaraan = '1 Mobil';
+  final String _selectedKendaraan = '1 Mobil';
   final String _selectedKeluarga = '4 Orang';
   late bool _waReminder;
 
@@ -121,25 +121,10 @@ class _EditProfilScreenState extends State<EditProfilScreen> {
                 children: [
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
-                    child: Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.05),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.arrow_back,
-                        color: Colors.black87,
-                        size: 20,
-                      ),
+                    child: const Icon(
+                      Icons.arrow_back,
+                      color: Colors.black87,
+                      size: 22,
                     ),
                   ),
                   Row(
@@ -587,102 +572,103 @@ class _EditProfilScreenState extends State<EditProfilScreen> {
                       ),
                     ],
                   ),
-                  Row(
-                    children: [
-                      // Keluarga Card
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                          decoration: BoxDecoration(
-                            color: _inputFillColor,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.groups_outlined, color: _primaryColor, size: 22),
-                              const SizedBox(width: 10),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text('Keluarga', style: TextStyle(fontSize: 10, color: Colors.black54)),
-                                  Text(
-                                    _selectedKeluarga,
-                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.black87),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      // Kendaraan Card (with Dropdown)
-                      Expanded(
-                        child: PopupMenuButton<String>(
-                          onSelected: (val) => setState(() => _selectedKendaraan = val),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          itemBuilder: (ctx) => [
-                            const PopupMenuItem(
-                              value: '1 Mobil',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.directions_car_outlined, size: 16, color: Color(0xFF09095E)),
-                                  SizedBox(width: 8),
-                                  Text('Kendaraan: 1 Mobil', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                                ],
-                              ),
-                            ),
-                            const PopupMenuItem(
-                              value: '1 Motor',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.two_wheeler_outlined, size: 16, color: Color(0xFF09095E)),
-                                  SizedBox(width: 8),
-                                  Text('Kendaraan: 1 Motor', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                                ],
-                              ),
-                            ),
-                            const PopupMenuItem(
-                              value: '1 Mobil + 2 Motor',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.local_shipping_outlined, size: 16, color: Color(0xFF09095E)),
-                                  SizedBox(width: 8),
-                                  Text('1 Mobil + 2 Motor', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                                ],
-                              ),
-                            ),
-                          ],
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Keluarga Card (Left)
+                        Expanded(
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                             decoration: BoxDecoration(
                               color: _inputFillColor,
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Row(
                               children: [
-                                Icon(Icons.directions_car_outlined, color: _primaryColor, size: 22),
+                                Icon(Icons.groups_outlined, color: _primaryColor, size: 24),
                                 const SizedBox(width: 10),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const Text('Kendaraan', style: TextStyle(fontSize: 10, color: Colors.black54)),
-                                      Text(
-                                        _selectedKendaraan,
-                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.black87),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ],
-                                  ),
+                                Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text('Keluarga', style: TextStyle(fontSize: 10, color: Colors.black54)),
+                                    Text(
+                                      _selectedKeluarga,
+                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.black87),
+                                    ),
+                                  ],
                                 ),
-                                const Icon(Icons.keyboard_arrow_down, size: 16, color: Colors.black54),
                               ],
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 10),
+                        // Kendaraan Cards (Right - Stacked 1 Mobil & 1 Motor)
+                        Expanded(
+                          child: Column(
+                            children: [
+                              // 1 Mobil
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: _inputFillColor,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.directions_car_outlined, color: _primaryColor, size: 20),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const Text('Kendaraan', style: TextStyle(fontSize: 9, color: Colors.black54)),
+                                          Text(
+                                            _selectedKendaraan,
+                                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.black87),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const Icon(Icons.keyboard_arrow_down, size: 16, color: Colors.black54),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              // 1 Motor
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: _inputFillColor,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.two_wheeler_outlined, color: _primaryColor, size: 20),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: const [
+                                          Text('Kendaraan', style: TextStyle(fontSize: 9, color: Colors.black54)),
+                                          Text(
+                                            '1 Motor',
+                                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.black87),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class PembayaranScreen extends StatefulWidget {
@@ -18,40 +19,85 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
   static const Color _greenBg = Color(0xFFE6F9F1);
   static const Color _orangeText = Color(0xFFB86E00);
   static const Color _orangeBg = Color(0xFFFFF0D9);
-  static const Color _greyText = Color(0xFF6B7280);
 
-  int _currentIndex = 1;
+  final int _currentIndex = 1;
+  final ScrollController _scrollController = ScrollController();
+  String? _selectedMethod; // null = Pilih metode, 'qris' = QRIS, 'transfer' = Transfer Manual
+
+  void _selectMethod(String? method) {
+    setState(() {
+      _selectedMethod = method;
+    });
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _bgColor,
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _buildTopBar(context),
-                    const SizedBox(height: 24),
-                    _buildDetailPembayaranCard(),
-                    const SizedBox(height: 16),
-                    _buildQrisCard(),
-                    const SizedBox(height: 16),
-                    _buildTransferManualCard(),
-                    const SizedBox(height: 100),
-                  ],
+    return PopScope(
+      canPop: _selectedMethod == null,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && _selectedMethod != null) {
+          _selectMethod(null);
+        }
+      },
+      child: Scaffold(
+        backgroundColor: _bgColor,
+        body: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                child: _buildTopBar(context),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildDetailPembayaranCard(),
+                      const SizedBox(height: 20),
+                      if (_selectedMethod == null) ...[
+                        _buildPilihMetodePembayaran(),
+                      ] else if (_selectedMethod == 'qris') ...[
+                        _buildSelectedMethodBar('QRIS'),
+                        const SizedBox(height: 12),
+                        _buildQrisCard(),
+                        const SizedBox(height: 16),
+                        _buildTransferManualCard(),
+                      ] else ...[
+                        _buildSelectedMethodBar('Transfer Manual Bank'),
+                        const SizedBox(height: 12),
+                        _buildTransferManualDetailCard(),
+                      ],
+                      const SizedBox(height: 100),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
+        bottomSheet: _selectedMethod == 'qris'
+            ? _buildCekStatusButton()
+            : _selectedMethod == 'transfer'
+                ? _buildUploadBuktiButton()
+                : null,
+        bottomNavigationBar: _buildBottomNav(context),
       ),
-      bottomSheet: _buildCekStatusButton(),
-      bottomNavigationBar: _buildBottomNav(context),
     );
   }
 
@@ -60,7 +106,13 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         GestureDetector(
-          onTap: () => Navigator.pop(context),
+          onTap: () {
+            if (_selectedMethod != null) {
+              _selectMethod(null);
+            } else {
+              Navigator.pop(context);
+            }
+          },
           child: Container(
             width: 38,
             height: 38,
@@ -226,6 +278,253 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
     );
   }
 
+  Widget _buildPilihMetodePembayaran() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.circle, size: 8, color: _primary),
+            const SizedBox(width: 8),
+            Text(
+              'Pilih metode Pembayaran',
+              style: GoogleFonts.inter(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: _primary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        _buildMethodOptionCard(
+          badgeWidget: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: _redBg, width: 1.5),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              'QRIS',
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: _redText,
+              ),
+            ),
+          ),
+          title: 'QRIS',
+          pillText: 'Otomatis',
+          pillBg: _greenBg,
+          pillColor: _greenText,
+          subtitle: 'BCA, Mandiri, GoPay, OVO, Dana, ShopeePay',
+          onTap: () => _selectMethod('qris'),
+        ),
+        const SizedBox(height: 12),
+        _buildMethodOptionCard(
+          badgeWidget: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF2F2),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFFFE5E5)),
+            ),
+            child: const Icon(Icons.receipt_long_outlined, size: 20, color: _redText),
+          ),
+          title: 'Transfer Manual Bank',
+          pillText: 'BCA',
+          pillBg: Colors.white,
+          pillColor: _primary,
+          pillBorder: const Color(0xFFE8E8F0),
+          subtitle: 'Alternatif jika QRIS bermasalah (perlu konfirmasi)',
+          onTap: () => _selectMethod('transfer'),
+        ),
+        const SizedBox(height: 18),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF4F7FB),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE8E8F0)),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.info_outline, size: 18, color: _primary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Pilih QRIS untuk konfirmasi pembayaran otomatis realtime tanpa upload bukti transfer.',
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    color: Colors.black54,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMethodOptionCard({
+    required Widget badgeWidget,
+    required String title,
+    required String pillText,
+    required Color pillBg,
+    required Color pillColor,
+    Color? pillBorder,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _cardBorder),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              badgeWidget,
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          title,
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: _primary,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: pillBg,
+                            borderRadius: BorderRadius.circular(12),
+                            border: pillBorder != null ? Border.all(color: pillBorder) : null,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (pillText == 'Otomatis') ...[
+                                Icon(Icons.circle, size: 5, color: pillColor),
+                                const SizedBox(width: 4),
+                              ],
+                              Text(
+                                pillText,
+                                style: GoogleFonts.inter(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                  color: pillColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF4F7FB),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 12,
+                  color: _primary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSelectedMethodBar(String methodName) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.circle, size: 8, color: _primary),
+            const SizedBox(width: 8),
+            Text(
+              'Metode Pembayaran',
+              style: GoogleFonts.inter(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: _primary,
+              ),
+            ),
+          ],
+        ),
+        GestureDetector(
+          onTap: () => _selectMethod(null),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF4F7FB),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: _cardBorder),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.swap_horiz_rounded, size: 14, color: _primary),
+                const SizedBox(width: 4),
+                Text(
+                  'Ganti Metode',
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: _primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildQrisCard() {
     return Container(
       decoration: BoxDecoration(
@@ -369,7 +668,7 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
+                        color: Colors.black.withValues(alpha: 0.05),
                         blurRadius: 10,
                         spreadRadius: 2,
                       )
@@ -409,7 +708,22 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () {},
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: const Row(
+                                children: [
+                                  Icon(Icons.check_circle, color: Colors.white, size: 20),
+                                  SizedBox(width: 8),
+                                  Text('Kode QRIS berhasil disimpan ke galeri!'),
+                                ],
+                              ),
+                              backgroundColor: const Color(0xFF1B8754),
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                          );
+                        },
                         icon: const Icon(Icons.download_outlined, size: 16, color: _primary),
                         label: Text('Simpan QR',
                             style: GoogleFonts.inter(
@@ -424,7 +738,22 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton.icon(
-                        onPressed: () {},
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: const Row(
+                                children: [
+                                  Icon(Icons.share, color: Colors.white, size: 20),
+                                  SizedBox(width: 8),
+                                  Text('Tautan & kode QRIS siap dibagikan!'),
+                                ],
+                              ),
+                              backgroundColor: _primary,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                          );
+                        },
                         icon: const Icon(Icons.share_outlined, size: 16, color: _redText),
                         label: Text('Bagikan',
                             style: GoogleFonts.inter(
@@ -591,7 +920,23 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                   ],
                 ),
                 OutlinedButton.icon(
-                  onPressed: () {},
+                  onPressed: () {
+                    Clipboard.setData(const ClipboardData(text: '1234567891011121'));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Row(
+                          children: [
+                            Icon(Icons.copy, color: Colors.white, size: 18),
+                            SizedBox(width: 8),
+                            Text('Nomor Rekening BCA Kas RT disalin!'),
+                          ],
+                        ),
+                        backgroundColor: const Color(0xFF1B8754),
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    );
+                  },
                   icon: const Icon(Icons.copy, size: 14, color: _primary),
                   label: Text('Salin',
                       style: GoogleFonts.inter(
@@ -630,13 +975,231 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
     );
   }
 
-  Widget _buildCekStatusButton() {
+  Widget _buildTransferManualDetailCard() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _cardBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: const BoxDecoration(
+              color: Color(0xFFFFF9F9),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+              border: Border(bottom: BorderSide(color: Color(0xFFFFEBEB))),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(color: const Color(0xFFFFEBEB)),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.receipt_long_outlined, size: 20, color: _redText),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text('Transfer Manual Bank',
+                              style: GoogleFonts.inter(
+                                  fontSize: 14, fontWeight: FontWeight.w700, color: _primary)),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              border: Border.all(color: const Color(0xFFE8E8F0)),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text('BCA',
+                                style: GoogleFonts.inter(
+                                    fontSize: 10, fontWeight: FontWeight.w700, color: _primary)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text('Verifikasi manual oleh bendahara RT (1x24 jam)',
+                          style: GoogleFonts.inter(
+                              fontSize: 11, fontWeight: FontWeight.w500, color: Colors.black54)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF4F7FB),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE8E8F0)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Nomor Rekening Kas RT:',
+                              style: GoogleFonts.inter(
+                                  fontSize: 10, fontWeight: FontWeight.w500, color: Colors.black54)),
+                          const SizedBox(height: 4),
+                          Text('1234 - 5678 - 9101 - 1121',
+                              style: GoogleFonts.inter(
+                                  fontSize: 14, fontWeight: FontWeight.w800, color: _primary, letterSpacing: 0.5)),
+                          const SizedBox(height: 4),
+                          Text('a.n Kas Paguyuban Sekar Indah',
+                              style: GoogleFonts.inter(
+                                  fontSize: 10, fontWeight: FontWeight.w500, color: Colors.black54)),
+                        ],
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          Clipboard.setData(const ClipboardData(text: '1234567891011121'));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: const Row(
+                                children: [
+                                  Icon(Icons.copy, color: Colors.white, size: 18),
+                                  SizedBox(width: 8),
+                                  Text('Nomor Rekening BCA Kas RT disalin!'),
+                                ],
+                              ),
+                              backgroundColor: const Color(0xFF1B8754),
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.copy, size: 14, color: _primary),
+                        label: Text('Salin',
+                            style: GoogleFonts.inter(
+                                fontSize: 11, fontWeight: FontWeight.w600, color: _primary)),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          minimumSize: Size.zero,
+                          side: const BorderSide(color: Color(0xFFE8E8F0)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE8E8F0)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Nominal Transfer:',
+                              style: GoogleFonts.inter(
+                                  fontSize: 10, fontWeight: FontWeight.w500, color: Colors.black54)),
+                          const SizedBox(height: 4),
+                          Text('Rp 175.000',
+                              style: GoogleFonts.inter(
+                                  fontSize: 15, fontWeight: FontWeight.w800, color: _primary)),
+                        ],
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          Clipboard.setData(const ClipboardData(text: '175000'));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: const Row(
+                                children: [
+                                  Icon(Icons.copy, color: Colors.white, size: 18),
+                                  SizedBox(width: 8),
+                                  Text('Nominal Rp 175.000 disalin!'),
+                                ],
+                              ),
+                              backgroundColor: const Color(0xFF1B8754),
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.copy, size: 14, color: _primary),
+                        label: Text('Salin Nominal',
+                            style: GoogleFonts.inter(
+                                fontSize: 11, fontWeight: FontWeight.w600, color: _primary)),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          minimumSize: Size.zero,
+                          side: const BorderSide(color: Color(0xFFE8E8F0)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF4F7FB),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.info_outline, size: 16, color: _primary),
+                          const SizedBox(width: 8),
+                          Text('Petunjuk Transfer Manual:',
+                              style: GoogleFonts.inter(
+                                  fontSize: 12, fontWeight: FontWeight.w700, color: _primary)),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      _buildInstructionItem('Buka aplikasi m-Banking atau kunjungi ATM BCA terdekat.'),
+                      const SizedBox(height: 8),
+                      _buildInstructionItem('Transfer ke rekening 1234-5678-9101-1121 a.n Kas Paguyuban Sekar Indah.'),
+                      const SizedBox(height: 8),
+                      _buildInstructionItem('Masukkan nominal sesuai tagihan yaitu tepat Rp 175.000.'),
+                      const SizedBox(height: 8),
+                      _buildInstructionItem('Simpan bukti transfer dan klik tombol di bawah untuk konfirmasi & unggah bukti.'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUploadBuktiButton() {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, -2),
           ),
@@ -648,8 +1211,42 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
           width: double.infinity,
           child: ElevatedButton.icon(
             onPressed: () {
-              // Untuk prototype, kita arahkan ke kwitansi. 
-              // Jika ingin simulasi manual, bisa diubah ke /tagihan
+              Navigator.pushNamed(context, '/konfirmasi_pembayaran');
+            },
+            icon: const Icon(Icons.upload_file_outlined, size: 18, color: Colors.white),
+            label: Text('Konfirmasi & Unggah Bukti',
+                style: GoogleFonts.inter(
+                    fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _primary,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              elevation: 0,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCekStatusButton() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: SafeArea(
+        child: SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: () {
               Navigator.pushNamed(context, '/kwitansi');
             },
             icon: const Icon(Icons.check_circle_outline, size: 18, color: Colors.white),
@@ -674,7 +1271,7 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, -2),
           ),
@@ -687,6 +1284,8 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
             Navigator.pushNamed(context, '/dashboard');
           } else if (index == 1) {
             Navigator.pushNamed(context, '/tagihan');
+          } else if (index == 2) {
+            Navigator.pushNamed(context, '/riwayat');
           }
         },
         backgroundColor: Colors.white,

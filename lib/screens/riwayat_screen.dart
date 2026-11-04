@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../data/dummy_data.dart';
 
 class RiwayatScreen extends StatefulWidget {
   const RiwayatScreen({super.key});
@@ -60,8 +61,20 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
     super.dispose();
   }
 
+  List<Map<String, dynamic>> get _filteredRiwayat {
+    final query = _searchController.text.trim().toLowerCase();
+    if (query.isEmpty) return _riwayatData;
+    return _riwayatData.where((d) {
+      final title = d['title'].toString().toLowerCase();
+      final method = d['method'].toString().toLowerCase();
+      final date = d['date'].toString().toLowerCase();
+      return title.contains(query) || method.contains(query) || date.contains(query);
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final items = _filteredRiwayat;
     return Scaffold(
       backgroundColor: _bgColor,
       body: SafeArea(
@@ -79,7 +92,17 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
                     const SizedBox(height: 16),
                     _buildFilterRow(),
                     const SizedBox(height: 16),
-                    ..._riwayatData.map((data) => _buildRiwayatCard(data)).toList(),
+                    if (items.isEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(24),
+                        alignment: Alignment.center,
+                        child: Text(
+                          'Tidak ada transaksi yang cocok.',
+                          style: GoogleFonts.inter(color: Colors.black54, fontSize: 13),
+                        ),
+                      )
+                    else
+                      ...items.map((data) => _buildRiwayatCard(data)),
                     const SizedBox(height: 8),
                     _buildKembaliButton(),
                     const SizedBox(height: 24),
@@ -95,16 +118,30 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
   }
 
   Widget _buildTopProfile() {
+    final store = DummyDataStore();
+    final user = store.activeUser;
+    final profile = store.profile;
+
     return Row(
       children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            color: _pinkBg,
+        GestureDetector(
+          onTap: () => Navigator.pushNamed(context, '/profile'),
+          child: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: _pinkBg,
+              border: Border.all(color: _primary.withValues(alpha: 0.2)),
+            ),
+            child: ClipOval(
+              child: Image.asset(
+                profile.fotoUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (ctx, err, stack) => const Icon(Icons.person, color: _primary),
+              ),
+            ),
           ),
-          child: const Icon(Icons.person, color: _primary),
         ),
         const SizedBox(width: 12),
         Column(
@@ -122,7 +159,7 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
             Row(
               children: [
                 Text(
-                  'Unit 1',
+                  profile.unit,
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
@@ -133,7 +170,7 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
                 const Text('•', style: TextStyle(color: _greyText, fontSize: 12)),
                 const SizedBox(width: 4),
                 Text(
-                  'Sabila',
+                  user.nama.split(' ').first,
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -160,6 +197,7 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
         child: TextField(
           controller: _searchController,
           autofocus: true,
+          onChanged: (_) => setState(() {}),
           style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500),
           decoration: InputDecoration(
             hintText: 'Cari riwayat...',
@@ -265,140 +303,151 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
   }
 
   Widget _buildRiwayatCard(Map<String, dynamic> data) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-          BoxShadow(
-            color: const Color(0xFFE8E8F0).withValues(alpha: 0.5),
-            blurRadius: 1,
-            spreadRadius: 0,
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: _blueBg,
-                  borderRadius: BorderRadius.circular(10),
+    return GestureDetector(
+      onTap: () {
+        Navigator.pushNamed(context, '/kwitansi');
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+            BoxShadow(
+              color: const Color(0xFFE8E8F0).withValues(alpha: 0.5),
+              blurRadius: 1,
+              spreadRadius: 0,
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: _blueBg,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.verified_user_outlined, size: 18, color: _primary),
                 ),
-                child: const Icon(Icons.verified_user_outlined, size: 18, color: _primary),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      data['title'],
-                      style: GoogleFonts.inter(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: _greyText,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        data['title'],
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: _greyText,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      data['amount'],
-                      style: GoogleFonts.inter(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: _primary,
+                      const SizedBox(height: 2),
+                      Text(
+                        data['amount'],
+                        style: GoogleFonts.inter(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: _primary,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _badgeBg,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  data['method'],
-                  style: GoogleFonts.inter(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
-                    color: _badgeText,
+                    ],
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          const Divider(height: 1, color: Color(0xFFF1F5F9)),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _greenTag,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: _greenText.withValues(alpha: 0.2)),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: const BoxDecoration(
-                        color: _greenDot,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Selesai',
-                      style: GoogleFonts.inter(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: _greenText,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    data['date'],
-                    style: GoogleFonts.inter(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.black87,
-                    ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _badgeBg,
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  Text(
-                    data['time'],
+                  child: Text(
+                    data['method'],
                     style: GoogleFonts.inter(
                       fontSize: 9,
-                      fontWeight: FontWeight.w500,
-                      color: _greyText,
+                      fontWeight: FontWeight.w600,
+                      color: _badgeText,
                     ),
                   ),
-                ],
-              ),
-            ],
-          ),
-        ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            const Divider(height: 1, color: Color(0xFFF1F5F9)),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _greenTag,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _greenText.withValues(alpha: 0.2)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: const BoxDecoration(
+                          color: _greenDot,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Selesai',
+                        style: GoogleFonts.inter(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: _greenText,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Row(
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          data['date'],
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        Text(
+                          data['time'],
+                          style: GoogleFonts.inter(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w500,
+                            color: _greyText,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(Icons.chevron_right, size: 16, color: Colors.black38),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -441,15 +490,14 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
         ],
       ),
       child: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
         currentIndex: 2,
         onTap: (index) {
           if (index == 0) {
             Navigator.pushNamed(context, '/dashboard');
           } else if (index == 1) {
             Navigator.pushNamed(context, '/tagihan');
-          } else if (index == 3) {
-            Navigator.pushNamed(context, '/profile');
+          } else if (index == 2) {
+            // Already on riwayat
           }
         },
         backgroundColor: Colors.white,
@@ -473,11 +521,6 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
             icon: Icon(Icons.history_outlined),
             activeIcon: Icon(Icons.history),
             label: 'Riwayat',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: 'Profil',
           ),
         ],
       ),

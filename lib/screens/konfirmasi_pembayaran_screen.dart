@@ -94,10 +94,17 @@ class _KonfirmasiPembayaranScreenState extends State<KonfirmasiPembayaranScreen>
             height: 38,
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
+              shape: BoxShape.circle,
               border: Border.all(color: _cardBorder, width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-            child: const Icon(Icons.arrow_back, size: 20, color: _primary),
+            child: const Icon(Icons.arrow_back, size: 18, color: _primary),
           ),
         ),
         Container(
@@ -159,7 +166,7 @@ class _KonfirmasiPembayaranScreenState extends State<KonfirmasiPembayaranScreen>
                 style: GoogleFonts.inter(
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
-                  color: _primary.withOpacity(0.7),
+                  color: _primary.withValues(alpha: 0.7),
                   letterSpacing: 0.5,
                 ),
               ),
@@ -225,7 +232,7 @@ class _KonfirmasiPembayaranScreenState extends State<KonfirmasiPembayaranScreen>
         border: Border.all(color: _cardBorder),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -239,7 +246,7 @@ class _KonfirmasiPembayaranScreenState extends State<KonfirmasiPembayaranScreen>
             style: GoogleFonts.inter(
               fontSize: 11,
               fontWeight: FontWeight.w700,
-              color: _primary.withOpacity(0.8),
+              color: _primary.withValues(alpha: 0.8),
               letterSpacing: 0.5,
             ),
           ),
@@ -340,7 +347,7 @@ class _KonfirmasiPembayaranScreenState extends State<KonfirmasiPembayaranScreen>
         border: Border.all(color: _cardBorder),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -356,7 +363,7 @@ class _KonfirmasiPembayaranScreenState extends State<KonfirmasiPembayaranScreen>
                 style: GoogleFonts.inter(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
-                  color: _primary.withOpacity(0.8),
+                  color: _primary.withValues(alpha: 0.8),
                   letterSpacing: 0.5,
                 ),
               ),
@@ -385,7 +392,7 @@ class _KonfirmasiPembayaranScreenState extends State<KonfirmasiPembayaranScreen>
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFF2F4).withOpacity(0.5),
+                color: const Color(0xFFFFF2F4).withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
@@ -485,14 +492,30 @@ class _KonfirmasiPembayaranScreenState extends State<KonfirmasiPembayaranScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: _primary.withOpacity(0.2),
+            color: _primary.withValues(alpha: 0.2),
             blurRadius: 16,
             offset: const Offset(0, 8),
           ),
         ],
       ),
       child: ElevatedButton(
-        onPressed: () {},
+        onPressed: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.white, size: 20),
+                  SizedBox(width: 8),
+                  Text('Konfirmasi pembayaran berhasil dikirim!'),
+                ],
+              ),
+              backgroundColor: const Color(0xFF1B8754),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          );
+          Navigator.pushNamed(context, '/kwitansi');
+        },
         style: ElevatedButton.styleFrom(
           backgroundColor: _primary,
           padding: const EdgeInsets.symmetric(vertical: 16),
@@ -519,7 +542,7 @@ class _KonfirmasiPembayaranScreenState extends State<KonfirmasiPembayaranScreen>
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 20,
             offset: const Offset(0, -5),
           ),
@@ -535,6 +558,8 @@ class _KonfirmasiPembayaranScreenState extends State<KonfirmasiPembayaranScreen>
             Navigator.pushReplacementNamed(context, '/dashboard');
           } else if (index == 1) {
             Navigator.pushReplacementNamed(context, '/tagihan');
+          } else if (index == 2) {
+            Navigator.pushReplacementNamed(context, '/riwayat');
           }
         },
         backgroundColor: Colors.white,

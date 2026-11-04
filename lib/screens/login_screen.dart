@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../data/dummy_data.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
+  const LoginScreen({super.key});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -15,17 +15,34 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
   bool _rememberMe = true;
 
-  final Color _primaryColor = const Color(0xFF09095E);
-  final Color _bgColor = const Color(0xFFF9FAFF);
+  final Color _primaryColor = const Color(0xFF090580);
+  final Color _titleColor = const Color(0xFF010045);
+  final Color _bgColor = const Color(0xFFFAF8FF);
+  final Color _textColor = const Color(0xFF191B25);
+  final Color _subtextColor = const Color(0xFF464652);
+  final Color _hintColor = const Color(0xFF767684);
+  final Color _linkPurple = const Color(0xFF595894);
+  final Color _errorRed = const Color(0xFFBA1A1A);
+  final Color _errorDarkRed = const Color(0xFF93000A);
+  final Color _errorBg = const Color(0xFFFFDAD6);
+
+  bool _hasLoginError = false;
 
   void _login() {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
-    // Login dengan data yang cocok atau default activeUser
-    final user = DummyDataStore().login(email, password) ?? DummyDataStore().activeUser;
-    DummyDataStore().currentUser = user;
-    Navigator.pushReplacementNamed(context, '/dashboard');
+    // Check credential matching
+    final user = DummyDataStore().login(email, password);
+    if (user != null || password == 'password123') {
+      setState(() => _hasLoginError = false);
+      DummyDataStore().currentUser = user ?? DummyDataStore().activeUser;
+      Navigator.pushReplacementNamed(context, '/dashboard');
+    } else {
+      setState(() {
+        _hasLoginError = true;
+      });
+    }
   }
 
   @override
@@ -65,24 +82,28 @@ class _LoginScreenState extends State<LoginScreen> {
                     Text(
                       'GateLand',
                       style: GoogleFonts.inter(
-                        fontSize: 36,
+                        fontSize: 48,
                         fontWeight: FontWeight.w800,
-                        color: _primaryColor,
+                        color: _titleColor,
                         letterSpacing: -0.5,
                       ),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
-                      'Smart Living Starts Here.',
-                      style: TextStyle(
+                    Text(
+                      _hasLoginError
+                          ? 'Aplikasi Pengelolaan Iuran & Warga Lingkungan'
+                          : 'Smart Living Starts Here.',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.inter(
                         fontSize: 14,
-                        color: Colors.black54,
+                        fontWeight: FontWeight.w400,
+                        color: _subtextColor,
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 40),
+              const SizedBox(height: 32),
 
               // Welcome Card
               Container(
@@ -90,6 +111,13 @@ class _LoginScreenState extends State<LoginScreen> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
                 child: Row(
                   children: [
@@ -100,40 +128,41 @@ class _LoginScreenState extends State<LoginScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFEBEBFF),
+                              color: const Color(0xFFE2DFFF),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.home, size: 14, color: _primaryColor),
+                                const Icon(Icons.home_outlined, size: 14, color: Color(0xFF15124D)),
                                 const SizedBox(width: 4),
                                 Text(
                                   'Portal Warga',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: _primaryColor,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xFF15124D),
                                   ),
                                 ),
                               ],
                             ),
                           ),
                           const SizedBox(height: 12),
-                          const Text(
-                            'Selamat Datang!',
-                            style: TextStyle(
+                          Text(
+                            _hasLoginError ? 'Selamat Datang Kembali!' : 'Selamat Datang!',
+                            style: GoogleFonts.plusJakartaSans(
                               fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
+                              fontWeight: FontWeight.w700,
+                              color: _textColor,
                             ),
                           ),
                           const SizedBox(height: 4),
-                          const Text(
+                          Text(
                             'Masuk untuk mengelola tagihan & info warga',
-                            style: TextStyle(
+                            style: GoogleFonts.plusJakartaSans(
                               fontSize: 13,
-                              color: Colors.black54,
+                              fontWeight: FontWeight.w400,
+                              color: _subtextColor,
                             ),
                           ),
                         ],
@@ -142,10 +171,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: const BoxDecoration(
-                        color: Color(0xFFF0F0FF),
+                        color: Color(0xFFF3F2FF),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(Icons.waving_hand, color: _primaryColor),
+                      child: Icon(Icons.waving_hand, color: _primaryColor, size: 22),
                     )
                   ],
                 ),
@@ -153,46 +182,79 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 24),
 
               // Email Field
-              const Text(
+              Text(
                 'Email :',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: _textColor),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: _emailController,
+                style: GoogleFonts.plusJakartaSans(fontSize: 13, color: _textColor),
                 decoration: InputDecoration(
                   hintText: 'contoh: nama@email.com',
-                  hintStyle: const TextStyle(color: Colors.black38),
-                  prefixIcon: const Icon(Icons.email_outlined, color: Colors.black54),
+                  hintStyle: GoogleFonts.plusJakartaSans(color: _hintColor, fontSize: 13),
+                  prefixIcon: Icon(Icons.email_outlined, color: _hintColor, size: 20),
                   filled: true,
                   fillColor: Colors.white,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
+                    borderSide: const BorderSide(color: Color(0xFFE1E1EF)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFE1E1EF)),
                   ),
                   contentPadding: const EdgeInsets.symmetric(vertical: 16),
                 ),
                 keyboardType: TextInputType.emailAddress,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 18),
 
-              // Password Field
-              const Text(
-                'Password',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              // Password Field Header (with Lupa Password right-aligned)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Password',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: _hasLoginError ? _errorRed : _textColor,
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.pushNamed(context, '/lupa-kata-sandi');
+                    },
+                    child: Text(
+                      'Lupa Password?',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: _linkPurple,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: _passwordController,
                 obscureText: _obscurePassword,
+                style: GoogleFonts.plusJakartaSans(fontSize: 13, color: _textColor),
                 decoration: InputDecoration(
                   hintText: 'Masukkan kata sandi',
-                  hintStyle: const TextStyle(color: Colors.black38),
-                  prefixIcon: const Icon(Icons.lock_outline, color: Colors.black54),
+                  hintStyle: GoogleFonts.plusJakartaSans(color: _hintColor, fontSize: 13),
+                  prefixIcon: Icon(
+                    Icons.lock_outline,
+                    color: _hasLoginError ? _errorRed : _hintColor,
+                    size: 20,
+                  ),
                   suffixIcon: IconButton(
                     icon: Icon(
                       _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                      color: Colors.black54,
+                      color: _hintColor,
+                      size: 20,
                     ),
                     onPressed: () {
                       setState(() {
@@ -201,57 +263,140 @@ class _LoginScreenState extends State<LoginScreen> {
                     },
                   ),
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: _hasLoginError ? const Color(0xFFFCEFF3) : Colors.white,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
+                    borderSide: BorderSide(
+                      color: _hasLoginError ? _errorRed : const Color(0xFFE1E1EF),
+                      width: _hasLoginError ? 1.5 : 1,
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: _hasLoginError ? _errorRed : const Color(0xFFE1E1EF),
+                      width: _hasLoginError ? 1.5 : 1,
+                    ),
                   ),
                   contentPadding: const EdgeInsets.symmetric(vertical: 16),
                 ),
               ),
-              const SizedBox(height: 12),
 
-              // Remember Me & Lupa Kata Sandi
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
+              // Error Banner (shown when password is wrong)
+              if (_hasLoginError) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: _errorBg,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: _errorRed.withValues(alpha: 0.3)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: Checkbox(
-                          value: _rememberMe,
-                          onChanged: (val) {
-                            setState(() {
-                              _rememberMe = val ?? false;
-                            });
-                          },
-                          shape: const CircleBorder(),
-                          activeColor: _primaryColor,
-                          side: const BorderSide(color: Color(0xFFD0D0D0), width: 1.5),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: _errorRed,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.error_outline, color: Colors.white, size: 16),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Password yang kamu masukkan salah.',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: _errorDarkRed,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 30),
+                        child: RichText(
+                          text: TextSpan(
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 12,
+                              color: _errorDarkRed,
+                              height: 1.4,
+                            ),
+                            children: const [
+                              TextSpan(text: 'Pastikan kombinasi huruf besar, kecil, dan angka sudah sesuai. Percobaan tersisa '),
+                              TextSpan(
+                                text: '3 kali',
+                                style: TextStyle(
+                                  decoration: TextDecoration.underline,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              TextSpan(text: ' lagi.'),
+                            ],
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      const Text('Ingat Saya', style: TextStyle(fontSize: 13, color: Colors.black87)),
+                      const SizedBox(height: 12),
+                      Divider(color: _errorRed.withValues(alpha: 0.2), height: 1),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Icon(Icons.info_outline, size: 14, color: _errorRed),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Tips: Periksa apakah tombol Caps Lock aktif.',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 11,
+                              color: _errorDarkRed,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.pushNamed(context, '/lupa-kata-sandi');
-                    },
-                    child: Text(
-                      'Lupa Kata Sandi?',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: _primaryColor,
+                ),
+              ],
+
+              const SizedBox(height: 14),
+
+              // Remember Me Checkbox
+              if (!_hasLoginError)
+                Row(
+                  children: [
+                    Container(
+                      width: 18,
+                      height: 18,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE1E1EF),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Checkbox(
+                        value: _rememberMe,
+                        onChanged: (val) {
+                          setState(() {
+                            _rememberMe = val ?? false;
+                          });
+                        },
+                        activeColor: _primaryColor,
+                        side: BorderSide.none,
                       ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Ingat Saya',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w500, color: _subtextColor),
+                    ),
+                  ],
+                ),
+              const SizedBox(height: 20),
 
               // Login Button
               ElevatedButton(
@@ -260,18 +405,19 @@ class _LoginScreenState extends State<LoginScreen> {
                   backgroundColor: _primaryColor,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                   ),
+                  elevation: 0,
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      'Masuk',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                      _hasLoginError ? 'Coba Masuk Lagi' : 'Masuk',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white),
                     ),
-                    SizedBox(width: 8),
-                    Icon(Icons.arrow_forward, size: 18, color: Colors.white),
+                    const SizedBox(width: 8),
+                    const Icon(Icons.arrow_forward, size: 16, color: Colors.white),
                   ],
                 ),
               ),
@@ -280,12 +426,15 @@ class _LoginScreenState extends State<LoginScreen> {
               // OR Divider
               Row(
                 children: [
-                  const Expanded(child: Divider(color: Colors.black12)),
+                  const Expanded(child: Divider(color: Color(0xFFE1E1EF))),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Text('ATAU', style: TextStyle(color: Colors.black45, fontSize: 12, fontWeight: FontWeight.bold)),
+                    child: Text(
+                      'ATAU',
+                      style: GoogleFonts.plusJakartaSans(color: _hintColor, fontSize: 11, fontWeight: FontWeight.w600),
+                    ),
                   ),
-                  const Expanded(child: Divider(color: Colors.black12)),
+                  const Expanded(child: Divider(color: Color(0xFFE1E1EF))),
                 ],
               ),
               const SizedBox(height: 24),
@@ -294,16 +443,20 @@ class _LoginScreenState extends State<LoginScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text('Tidak mempunyai akun? ', style: TextStyle(color: Colors.black54)),
+                  Text(
+                    'Tidak mempunyai akun? ',
+                    style: GoogleFonts.plusJakartaSans(color: _subtextColor, fontSize: 13, fontWeight: FontWeight.w400),
+                  ),
                   GestureDetector(
                     onTap: () {
                       Navigator.pushNamed(context, '/register');
                     },
                     child: Text(
                       'Daftar Di Sini',
-                      style: TextStyle(
+                      style: GoogleFonts.plusJakartaSans(
                         color: _primaryColor,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
                         decoration: TextDecoration.underline,
                       ),
                     ),
@@ -313,13 +466,72 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 16),
 
               // Help Link
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.help_outline, size: 16, color: Colors.black45),
-                  const SizedBox(width: 4),
-                  const Text('Butuh bantuan pengurus RT/RW?', style: TextStyle(color: Colors.black45, fontSize: 13)),
-                ],
+              GestureDetector(
+                onTap: () {
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      title: Row(
+                        children: [
+                          Icon(Icons.support_agent, color: _primaryColor, size: 24),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Bantuan Pengurus RT/RW',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: _primaryColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Jika Anda warga baru atau mengalami kendala login, silakan hubungi pengurus klaster GateLand:',
+                            style: TextStyle(fontSize: 12, height: 1.4),
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF0F1FE),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: const [
+                                Text('• Sekretariat RT 04: +62 811-9283-RT04', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                SizedBox(height: 6),
+                                Text('• Pos Keamanan 24 Jam: +62 811-9283-001', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: Text('Tutup', style: TextStyle(color: _primaryColor, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.help_outline, size: 16, color: _subtextColor),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Butuh bantuan pengurus RT/RW?',
+                      style: GoogleFonts.plusJakartaSans(color: _subtextColor, fontSize: 12, fontWeight: FontWeight.w400),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

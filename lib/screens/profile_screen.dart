@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../data/dummy_data.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -394,8 +395,75 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 actionText: 'Denah Rumah ›',
                 actionColor: _primaryColor,
                 onActionTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Membuka denah rumah...')),
+                  showModalBottomSheet(
+                    context: context,
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                    ),
+                    builder: (ctx) => Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Denah Unit ${profile.unit}',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: _primaryColor,
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.close, size: 20),
+                                onPressed: () => Navigator.pop(ctx),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            height: 180,
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF3F4FB),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: const Color(0xFFE2E4F0)),
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.home_work_outlined, size: 48, color: _primaryColor),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Tipe 45 / 90 • 2 Kamar Tidur, 1 Garasi',
+                                  style: TextStyle(fontWeight: FontWeight.bold, color: _primaryColor, fontSize: 13),
+                                ),
+                                const SizedBox(height: 4),
+                                const Text(
+                                  'Kavling Edelweiss Blok B4 No. 12',
+                                  style: TextStyle(fontSize: 11, color: Colors.black54),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _primaryColor,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                              onPressed: () => Navigator.pop(ctx),
+                              child: const Text('Tutup', style: TextStyle(color: Colors.white)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   );
                 },
               ),
@@ -559,6 +627,57 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         },
                       ),
                     ],
+                  ),
+                  _buildDivider(),
+                  InkWell(
+                    onTap: () {
+                      Navigator.pushNamed(context, '/ubah-kata-sandi');
+                    },
+                    borderRadius: BorderRadius.circular(10),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(9),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEEF0FA),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(
+                              Icons.lock_reset,
+                              color: _primaryColor,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: const [
+                                Text(
+                                  'Ubah Kata Sandi',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                                SizedBox(height: 2),
+                                Text(
+                                  'Ganti password akun warga',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.black54,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.chevron_right, size: 20, color: Colors.black45),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -737,8 +856,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
       ),
       child: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        currentIndex: 3,
+        currentIndex: 0,
         onTap: (index) {
           if (index == 0) {
             Navigator.pushReplacementNamed(context, '/dashboard');
@@ -746,15 +864,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Navigator.pushNamed(context, '/tagihan');
           } else if (index == 2) {
             Navigator.pushNamed(context, '/riwayat');
-          } else if (index == 3) {
-            // already on profile
           }
         },
         backgroundColor: Colors.white,
         selectedItemColor: _primaryColor,
         unselectedItemColor: Colors.black54,
-        selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11),
-        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 11),
+        selectedLabelStyle: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, fontSize: 11),
+        unselectedLabelStyle: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w500, fontSize: 11),
         elevation: 0,
         items: const [
           BottomNavigationBarItem(
@@ -769,11 +885,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.history),
             label: 'Riwayat',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: 'Profil',
           ),
         ],
       ),

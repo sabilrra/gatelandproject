@@ -1,7 +1,7 @@
-/// Model dan penyimpanan data dummy untuk autentikasi GateLand.
-///
-/// Menyimpan daftar pengguna terdaftar dan menyediakan
-/// fungsi login serta registrasi sederhana.
+// Model dan penyimpanan data dummy untuk autentikasi GateLand.
+//
+// Menyimpan daftar pengguna terdaftar dan menyediakan
+// fungsi login serta registrasi sederhana.
 
 class UserData {
   String nama;

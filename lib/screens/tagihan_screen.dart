@@ -136,6 +136,8 @@ class _TagihanScreenState extends State<TagihanScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final showEmptyAllPaid = _tabIndex == 1 && _pending.isEmpty;
+
     return Scaffold(
       backgroundColor: _bgColor,
       body: SafeArea(
@@ -152,13 +154,20 @@ class _TagihanScreenState extends State<TagihanScreen> {
                     _buildTitle(),
                     const SizedBox(height: 20),
                     _buildTabBar(),
-                    const SizedBox(height: 16),
-                    _buildSummaryCard(),
                     const SizedBox(height: 24),
-                    _buildListHeader(),
-                    const SizedBox(height: 14),
-                    ..._buildItemList(),
-                    const SizedBox(height: 110),
+                    if (showEmptyAllPaid) ...[
+                      _buildListHeader(),
+                      const SizedBox(height: 20),
+                      _buildAllPaidCard(),
+                      const SizedBox(height: 40),
+                    ] else ...[
+                      _buildSummaryCard(),
+                      const SizedBox(height: 24),
+                      _buildListHeader(),
+                      const SizedBox(height: 14),
+                      ..._buildItemList(),
+                      const SizedBox(height: 110),
+                    ],
                   ],
                 ),
               ),
@@ -166,13 +175,15 @@ class _TagihanScreenState extends State<TagihanScreen> {
           ],
         ),
       ),
-      bottomSheet: _tabIndex == 2 ? _buildLunasBottomBar() : _buildPaymentBottomBar(),
+      bottomSheet: showEmptyAllPaid
+          ? null
+          : (_tabIndex == 2 ? _buildLunasBottomBar() : _buildPaymentBottomBar()),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 10,
               offset: const Offset(0, -2),
             ),
@@ -186,15 +197,13 @@ class _TagihanScreenState extends State<TagihanScreen> {
               Navigator.pushNamed(context, '/dashboard');
             } else if (index == 2) {
               Navigator.pushNamed(context, '/riwayat');
-            } else if (index == 3) {
-              Navigator.pushNamed(context, '/profile');
             }
           },
           backgroundColor: Colors.white,
           selectedItemColor: _primary,
-          unselectedItemColor: Colors.black54,
-          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11),
-          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 11),
+          unselectedItemColor: Colors.black45,
+          selectedLabelStyle: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 11),
+          unselectedLabelStyle: GoogleFonts.inter(fontWeight: FontWeight.w500, fontSize: 11),
           elevation: 0,
           items: const [
             BottomNavigationBarItem(
@@ -204,19 +213,183 @@ class _TagihanScreenState extends State<TagihanScreen> {
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.receipt_long_outlined),
+              activeIcon: Icon(Icons.receipt_long),
               label: 'Tagihan',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.history),
+              activeIcon: Icon(Icons.history),
               label: 'Riwayat',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline),
-              activeIcon: Icon(Icons.person),
-              label: 'Profil',
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildAllPaidCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFFFEBEB), width: 1.5),
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFAFAFF), Color(0xFFFFF4F4)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 15,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          const SizedBox(height: 12),
+          Container(
+            width: 90,
+            height: 90,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF3F3FF),
+              shape: BoxShape.circle,
+              border: Border.all(color: const Color(0xFFFFDEDE), width: 6),
+            ),
+            child: const Center(
+              child: Icon(Icons.check_circle_outline, color: _primary, size: 44),
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Semua Tagihan Sudah Lunas!',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: _primary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          RichText(
+            textAlign: TextAlign.center,
+            text: TextSpan(
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                color: Colors.black54,
+                height: 1.5,
+              ),
+              children: const [
+                TextSpan(text: 'Hebat! Seluruh iuran warga periode\n'),
+                TextSpan(
+                  text: 'Agustus 2026',
+                  style: TextStyle(fontWeight: FontWeight.bold, color: _primary),
+                ),
+                TextSpan(
+                  text: ' dan bulan sebelumnya\ntelah terselesaikan dengan baik. Terima\nkasih atas partisipasi aktif Anda dalam\nmenjaga kenyamanan klaster GateLand!',
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 28),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => Navigator.pushNamed(context, '/riwayat'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _primary,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                elevation: 0,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.receipt_long_outlined, size: 18, color: Colors.white),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Lihat Riwayat & Kwitansi',
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pushNamed(context, '/dashboard'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFCE6E6),
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.calendar_today_outlined, size: 14, color: _primary),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Jadwal Berikutnya',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: _primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () {
+                    setState(() {});
+                  },
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    side: const BorderSide(color: Color(0xFFE2E8F0)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.refresh, size: 14, color: _primary),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Muat Ulang',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: _primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+        ],
       ),
     );
   }
@@ -232,10 +405,17 @@ class _TagihanScreenState extends State<TagihanScreen> {
             height: 38,
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
+              shape: BoxShape.circle,
               border: Border.all(color: const Color(0xFFE8E8F0), width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-            child: const Icon(Icons.arrow_back_ios_new_rounded, size: 16, color: _primary),
+            child: const Icon(Icons.arrow_back, size: 18, color: _primary),
           ),
         ),
         Container(
@@ -277,96 +457,85 @@ class _TagihanScreenState extends State<TagihanScreen> {
           ),
         ),
         const SizedBox(height: 2),
-        Text('Kelola & Selesaikan Iuran Warga',
+        Text('Kelola & selesaikan iuran warga paguyuban',
             style: GoogleFonts.inter(fontSize: 13, color: Colors.black54)),
       ],
     );
   }
 
   Widget _buildTabBar() {
-    final tabs = [
-      ('Semua', _dummyTagihan.length),
-      ('Menunggu', _pending.length),
-      ('Sudah Lunas', _dummyTagihan.where((t) => t.status == TagihanStatus.lunas).length),
-    ];
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFF0F0F8),
-        borderRadius: BorderRadius.circular(12),
+        color: const Color(0xFFE8EEF5).withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(14),
       ),
       padding: const EdgeInsets.all(4),
       child: Row(
-        children: List.generate(tabs.length, (i) {
-          final isActive = _tabIndex == i;
-          
-          Color getActiveBg() {
-            if (i == 0) return _pinkBg;
-            if (i == 1) return const Color(0xFFFFF9EE);
-            return _greenTag;
-          }
-          
-          Color getActiveBorder() {
-            if (i == 0) return _cardBorder;
-            if (i == 1) return const Color(0xFFFFE5B4);
-            return _greenDot;
-          }
-          
-          Color getActiveText() {
-            if (i == 2) return _greenText;
-            return _primary;
-          }
-          
-          Color getActiveBadgeText() {
-            if (i == 0) return _primary;
-            if (i == 1) return _orangeText;
-            return _greenText;
-          }
+        children: [
+          _buildTabItem(0, 'Semua', null),
+          _buildTabItem(1, 'Menunggu', '0'),
+          _buildTabItem(2, 'Sudah Lunas', null),
+        ],
+      ),
+    );
+  }
 
-          return Expanded(
-            child: GestureDetector(
-              onTap: () => setState(() => _tabIndex = i),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(vertical: 9),
-                decoration: BoxDecoration(
-                  color: isActive ? getActiveBg() : Colors.transparent,
-                  borderRadius: BorderRadius.circular(9),
-                  border: isActive ? Border.all(color: getActiveBorder(), width: 1.5) : null,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      tabs[i].$1,
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                        color: isActive ? getActiveText() : Colors.black45,
-                      ),
+  Widget _buildTabItem(int index, String label, String? badge) {
+    final isActive = _tabIndex == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _tabIndex = index),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isActive ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: isActive
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
                     ),
-                    const SizedBox(width: 5),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: isActive ? Colors.white : Colors.black12,
-                        borderRadius: BorderRadius.circular(10),
-                        border: isActive ? Border.all(color: getActiveBorder(), width: 1.5) : null,
-                      ),
-                      child: Text(
-                        '${tabs[i].$2}',
-                        style: GoogleFonts.inter(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: isActive ? getActiveBadgeText() : Colors.black45,
-                        ),
-                      ),
-                    ),
-                  ],
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                label,
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                  color: isActive ? _primary : Colors.black54,
                 ),
               ),
-            ),
-          );
-        }),
+              if (badge != null) ...[
+                const SizedBox(width: 6),
+                Container(
+                  width: 18,
+                  height: 18,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFEF9C3),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(
+                      badge,
+                      style: GoogleFonts.inter(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF854D0E),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -538,7 +707,7 @@ class _TagihanScreenState extends State<TagihanScreen> {
         Text('Daftar Rincian Iuran',
             style: GoogleFonts.inter(
                 fontSize: 16, fontWeight: FontWeight.w800, color: _primary)),
-        Text('Periode Sep 2026',
+        Text('Periode Agt 2026',
             style: GoogleFonts.inter(fontSize: 12, color: Colors.black45)),
       ],
     );
@@ -670,7 +839,9 @@ class _TagihanScreenState extends State<TagihanScreen> {
                   if (isLunas) ...[
                     const SizedBox(height: 8),
                     GestureDetector(
-                      onTap: () {},
+                      onTap: () {
+                        Navigator.pushNamed(context, '/kwitansi');
+                      },
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                         decoration: BoxDecoration(
@@ -840,7 +1011,9 @@ class _TagihanScreenState extends State<TagihanScreen> {
             ),
           ),
           GestureDetector(
-            onTap: () {},
+            onTap: () {
+              Navigator.pushNamed(context, '/kwitansi');
+            },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(

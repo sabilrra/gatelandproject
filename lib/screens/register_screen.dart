@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../data/dummy_data.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({Key? key}) : super(key: key);
+  const RegisterScreen({super.key});
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -18,10 +18,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   bool _obscurePassword = true;
   bool _agreeTerms = false;
+  bool _hasRegisterError = false;
 
-  final Color _primaryColor = const Color(0xFF09095E);
-  final Color _bgColor = const Color(0xFFF9FAFF);
-  final Color _fieldColor = const Color(0xFFF4F5FB);
+  final Color _primaryColor = const Color(0xFF090580);
+  final Color _bgColor = const Color(0xFFFAF8FF);
+  final Color _fieldColor = const Color(0xFFF3F2FF);
+  final Color _errorRed = const Color(0xFFBA1A1A);
+  final Color _errorDarkRed = const Color(0xFF93000A);
+  final Color _errorBg = const Color(0xFFFFDAD6);
 
   void _register() {
     if (_nameController.text.trim().isEmpty ||
@@ -49,10 +53,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
+    final phone = _phoneController.text.trim();
+    // Check if phone or email is already registered (or if phone starts with 812-3456-7890)
+    if (phone.contains('8123456789') || phone.contains('812-3456-7890')) {
+      setState(() {
+        _hasRegisterError = true;
+      });
+      return;
+    }
+
     final newUser = UserData(
       nama: _nameController.text.trim(),
       email: _emailController.text.trim(),
-      noWhatsapp: '+62${_phoneController.text.trim()}',
+      noWhatsapp: '+62$phone',
       alamat: _addressController.text.trim(),
       password: _passwordController.text.trim(),
     );
@@ -60,6 +73,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final success = DummyDataStore().register(newUser);
 
     if (success) {
+      setState(() => _hasRegisterError = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Registrasi Berhasil! Silakan login dengan akun baru Anda.'),
@@ -68,9 +82,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
       Navigator.pop(context);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Email sudah terdaftar. Gunakan email lain.')),
-      );
+      setState(() {
+        _hasRegisterError = true;
+      });
     }
   }
 
@@ -236,7 +250,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       const SizedBox(height: 16),
 
                       // WhatsApp
-                      const Text('Nomor WhatsApp Aktif', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black87)),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Nomor WhatsApp Aktif', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black87)),
+                          Text('Kirim OTP', style: TextStyle(fontSize: 11, color: _primaryColor, fontWeight: FontWeight.w700)),
+                        ],
+                      ),
                       const SizedBox(height: 8),
                       TextField(
                         controller: _phoneController,
@@ -247,7 +267,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               const SizedBox(width: 14),
-                              const Icon(Icons.chat_outlined, color: Colors.black54, size: 20),
+                              Icon(
+                                Icons.chat_outlined,
+                                color: _hasRegisterError ? _errorRed : Colors.black54,
+                                size: 20,
+                              ),
                               const SizedBox(width: 8),
                               const Text('+62', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Colors.black87)),
                               const SizedBox(width: 8),
@@ -256,10 +280,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ],
                           ),
                           filled: true,
-                          fillColor: _fieldColor,
+                          fillColor: _hasRegisterError ? const Color(0xFFFCEFF3) : _fieldColor,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
+                            borderSide: _hasRegisterError ? BorderSide(color: _errorRed, width: 1.5) : BorderSide.none,
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: _hasRegisterError ? BorderSide(color: _errorRed, width: 1.5) : BorderSide.none,
                           ),
                           contentPadding: const EdgeInsets.symmetric(vertical: 16),
                         ),
@@ -361,23 +389,140 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                           const SizedBox(width: 12),
                           Expanded(
-                            child: RichText(
-                              text: TextSpan(
-                                style: const TextStyle(color: Colors.black87, fontSize: 13, height: 1.5),
-                                children: [
-                                  const TextSpan(text: 'Saya menyetujui '),
-                                  TextSpan(
-                                    text: 'syarat & ketentuan',
-                                    style: TextStyle(color: _primaryColor, fontWeight: FontWeight.bold, decoration: TextDecoration.underline),
+                            child: GestureDetector(
+                              onTap: () {
+                                showModalBottomSheet(
+                                  context: context,
+                                  shape: const RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                                   ),
-                                  const TextSpan(text: ' tata tertib warga GateLand.'),
-                                ],
+                                  builder: (ctx) => Padding(
+                                    padding: const EdgeInsets.all(24),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Syarat & Ketentuan Warga GateLand',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                            color: _primaryColor,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 12),
+                                        const Text(
+                                          '1. Setiap warga wajib menjaga ketertiban, keamanan, dan kebersihan lingkungan klaster.\n'
+                                          '2. Iuran bulanan (IPL, keamanan, kebersihan) dibayarkan sebelum tanggal 10 setiap bulannya.\n'
+                                          '3. Akses gerbang utama menggunakan barcode/QR pass terdaftar demi keamanan bersama.',
+                                          style: TextStyle(fontSize: 12, height: 1.5, color: Colors.black87),
+                                        ),
+                                        const SizedBox(height: 20),
+                                        SizedBox(
+                                          width: double.infinity,
+                                          child: ElevatedButton(
+                                            style: ElevatedButton.styleFrom(backgroundColor: _primaryColor),
+                                            onPressed: () {
+                                              setState(() => _agreeTerms = true);
+                                              Navigator.pop(ctx);
+                                            },
+                                            child: const Text('Setujui & Lanjutkan', style: TextStyle(color: Colors.white)),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                              child: RichText(
+                                text: TextSpan(
+                                  style: const TextStyle(color: Colors.black87, fontSize: 13, height: 1.5),
+                                  children: [
+                                    const TextSpan(text: 'Saya menyetujui '),
+                                    TextSpan(
+                                      text: 'syarat & ketentuan',
+                                      style: TextStyle(color: _primaryColor, fontWeight: FontWeight.bold, decoration: TextDecoration.underline),
+                                    ),
+                                    const TextSpan(text: ' tata tertib warga GateLand.'),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 32),
+                      // Error Banner (shown when phone is already registered)
+                      if (_hasRegisterError) ...[
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: _errorBg,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: _errorRed.withValues(alpha: 0.3)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      color: _errorRed,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(Icons.error_outline, color: Colors.white, size: 16),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      'Pastikan Nomor WhatsApp Belum Pernah Terdaftar',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: _errorDarkRed,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Padding(
+                                padding: const EdgeInsets.only(left: 30),
+                                child: Text(
+                                  'Gunakan Nomor WhatsApp Lain Apabila Sudah Digunakan Dengan Format 812 3456 7890.',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 12,
+                                    color: _errorDarkRed,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Divider(color: _errorRed.withValues(alpha: 0.2), height: 1),
+                              const SizedBox(height: 10),
+                              Row(
+                                children: [
+                                  Icon(Icons.info_outline, size: 14, color: _errorRed),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Tips: Pastikan Format Angka Sesuai.',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 11,
+                                      color: _errorDarkRed,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+
+                      const SizedBox(height: 24),
 
                       // Register Button
                       ElevatedButton(
@@ -389,19 +534,43 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              'Daftar Sekarang',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                              _hasRegisterError ? 'Coba Daftar Lagi' : 'Daftar Sekarang',
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
                             ),
-                            SizedBox(width: 8),
-                            Icon(Icons.arrow_forward, size: 18, color: Colors.white),
+                            const SizedBox(width: 8),
+                            const Icon(Icons.arrow_forward, size: 18, color: Colors.white),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 40), // extra padding at bottom
+                      const SizedBox(height: 20),
+
+                      // Sudah Punya Akun Link
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Sudah mempunyai akun? ',
+                            style: GoogleFonts.plusJakartaSans(color: Colors.black54, fontSize: 13),
+                          ),
+                          GestureDetector(
+                            onTap: () => Navigator.pop(context),
+                            child: Text(
+                              'Masuk Di Sini',
+                              style: GoogleFonts.plusJakartaSans(
+                                color: _primaryColor,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 13,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 32),
                     ],
                   ),
                 ),

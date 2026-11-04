@@ -125,7 +125,7 @@ class _KwitansiScreenState extends State<KwitansiScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withValues(alpha: 0.03),
             blurRadius: 20,
             offset: const Offset(0, 4),
           ),
@@ -319,7 +319,7 @@ class _KwitansiScreenState extends State<KwitansiScreen> {
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: _greenText.withOpacity(0.5), width: 1, style: BorderStyle.solid), // Should be dashed realistically but solid is fine for MVP
+              border: Border.all(color: _greenText.withValues(alpha: 0.5), width: 1, style: BorderStyle.solid), // Should be dashed realistically but solid is fine for MVP
             ),
             child: Transform.rotate(
               angle: -0.2,
@@ -328,7 +328,7 @@ class _KwitansiScreenState extends State<KwitansiScreen> {
                 style: GoogleFonts.inter(
                   fontSize: 10,
                   fontWeight: FontWeight.w800,
-                  color: _greenText.withOpacity(0.6),
+                  color: _greenText.withValues(alpha: 0.6),
                 ),
               ),
             ),
@@ -763,7 +763,7 @@ class _KwitansiScreenState extends State<KwitansiScreen> {
                 _showDetails = val;
               });
             },
-            activeColor: Colors.white,
+            activeThumbColor: Colors.white,
             activeTrackColor: _primary,
             inactiveTrackColor: const Color(0xFFE5E7EB),
             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -780,7 +780,7 @@ class _KwitansiScreenState extends State<KwitansiScreen> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, -5),
           ),
@@ -790,10 +790,25 @@ class _KwitansiScreenState extends State<KwitansiScreen> {
         child: SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
-            onPressed: () {},
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Row(
+                    children: [
+                      Icon(Icons.check_circle, color: Colors.white, size: 20),
+                      SizedBox(width: 8),
+                      Text('Kwitansi resmi berhasil diunduh (JPG)!'),
+                    ],
+                  ),
+                  backgroundColor: const Color(0xFF1B8754),
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              );
+            },
             icon: const Icon(Icons.download, size: 18, color: Colors.white),
             label: Text(
-              'Unduh Kwitansi (PDF)',
+              'Unduh Kwitansi (JPG)',
               style: GoogleFonts.inter(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,

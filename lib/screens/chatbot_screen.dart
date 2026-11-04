@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/dummy_data.dart';
 
 class ChatbotScreen extends StatefulWidget {
-  const ChatbotScreen({Key? key}) : super(key: key);
+  const ChatbotScreen({super.key});
 
   @override
   State<ChatbotScreen> createState() => _ChatbotScreenState();
@@ -40,7 +40,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       },
       {
         'isUser': false,
-        'text': 'Tagihan IPL Agustus 2026 sebesar **Rp 175.000** sudah tercatat dan siap dibayarkan sebelum jatuh tempo **10 Agustus**. Kamu bisa langsung klik tombol Bayar di Beranda ya! 😊',
+        'text': 'Tagihan IPL Agustus 2026 sebesar **Rp 175.000** sudah tercatat dan siap dibayarkan sebelum jatuh tempo **10 Agustus**. Ibu bisa langsung klik tombol Bayar di Beranda ya! 😊',
         'time': '10:42',
       },
     ];
@@ -69,6 +69,35 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     _controller.clear();
     
     // Scroll to bottom
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  void _attachSimulatedFile(String fileName) {
+    final now = TimeOfDay.now();
+    final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+
+    setState(() {
+      _messages.add({
+        'isUser': true,
+        'text': '📎 Mengirim lampiran: $fileName',
+        'time': timeStr,
+      });
+
+      _messages.add({
+        'isUser': false,
+        'text': 'Lampiran **$fileName** sudah Gita terima! Segera kami teruskan ke petugas RT/RW klaster GateLand ya. Terima kasih! 🙏',
+        'time': timeStr,
+      });
+    });
+
     Future.delayed(const Duration(milliseconds: 100), () {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
@@ -188,7 +217,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                     const SizedBox(width: 8),
                     _buildSuggestionChip('🧹 Jadwal kerja bakti minggu ini'),
                     const SizedBox(width: 8),
-                    _buildSuggestionChip('⚠️ Lapor fasilitas rusak'),
+                    _buildSuggestionChip('⚠️ Lapor kendala fasilitas'),
                   ],
                 ),
               ),
@@ -224,7 +253,74 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                         ),
                         IconButton(
                           icon: const Icon(Icons.attach_file, color: Colors.black38, size: 20),
-                          onPressed: () {},
+                          onPressed: () {
+                            showModalBottomSheet(
+                              context: context,
+                              shape: const RoundedRectangleBorder(
+                                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                              ),
+                              builder: (ctx) => SafeArea(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        width: 36,
+                                        height: 4,
+                                        decoration: BoxDecoration(
+                                          color: Colors.black12,
+                                          borderRadius: BorderRadius.circular(2),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      const Text(
+                                        'Lampirkan Berkas atau Foto',
+                                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      ListTile(
+                                        leading: const CircleAvatar(
+                                          backgroundColor: Color(0xFFEFF0FE),
+                                          child: Icon(Icons.photo_library_outlined, color: Color(0xFF09095E)),
+                                        ),
+                                        title: const Text('Foto dari Galeri'),
+                                        subtitle: const Text('Kirim foto bukti kendala fasilitas atau pembayaran'),
+                                        onTap: () {
+                                          Navigator.pop(ctx);
+                                          _attachSimulatedFile('foto_kendala_jalan.jpg');
+                                        },
+                                      ),
+                                      ListTile(
+                                        leading: const CircleAvatar(
+                                          backgroundColor: Color(0xFFFFECEE),
+                                          child: Icon(Icons.camera_alt_outlined, color: Color(0xFFC0392B)),
+                                        ),
+                                        title: const Text('Buka Kamera'),
+                                        subtitle: const Text('Ambil foto langsung dari ponsel Anda'),
+                                        onTap: () {
+                                          Navigator.pop(ctx);
+                                          _attachSimulatedFile('kamera_foto_langsung.jpg');
+                                        },
+                                      ),
+                                      ListTile(
+                                        leading: const CircleAvatar(
+                                          backgroundColor: Color(0xFFE8F8F0),
+                                          child: Icon(Icons.description_outlined, color: Color(0xFF1B8754)),
+                                        ),
+                                        title: const Text('Dokumen PDF'),
+                                        subtitle: const Text('Kirim surat atau berkas pendukung'),
+                                        onTap: () {
+                                          Navigator.pop(ctx);
+                                          _attachSimulatedFile('surat_permohonan.pdf');
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
                         ),
                       ],
                     ),
@@ -239,7 +335,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                       color: _primaryColor,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.send_outlined, color: Colors.white, size: 20),
+                    child: const Icon(Icons.send, color: Colors.white, size: 18),
                   ),
                 ),
               ],
@@ -257,15 +353,15 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         _sendMessage();
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFE0E0FF)),
+          border: Border.all(color: const Color(0xFFD8D8EE)),
         ),
         child: Text(
           text,
-          style: const TextStyle(fontSize: 12, color: Color(0xFF09095E), fontWeight: FontWeight.w500),
+          style: const TextStyle(fontSize: 12, color: Color(0xFF09095E), fontWeight: FontWeight.w600),
         ),
       ),
     );
@@ -294,12 +390,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: isUser ? _userBubbleColor : _botBubbleColor,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(isUser ? 16 : 0),
-                  topRight: Radius.circular(isUser ? 0 : 16),
-                  bottomLeft: const Radius.circular(16),
-                  bottomRight: const Radius.circular(16),
-                ),
+                borderRadius: BorderRadius.circular(20),
                 border: isUser ? null : Border.all(color: _botBorderColor, width: 1.5),
               ),
               child: Column(
@@ -328,7 +419,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                       ),
                       if (isUser) ...[
                         const SizedBox(width: 4),
-                        const Icon(Icons.done_all, size: 12, color: Color(0xFF10B981)),
+                        const Icon(Icons.check, size: 13, color: Color(0xFF10B981)),
                       ],
                     ],
                   ),

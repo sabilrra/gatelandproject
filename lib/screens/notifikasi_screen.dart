@@ -40,6 +40,8 @@ class _NotifikasiScreenState extends State<NotifikasiScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isEmpty = _selectedFilter.contains('(0)');
+
     return Scaffold(
       backgroundColor: _bgColor,
       body: SafeArea(
@@ -50,24 +52,42 @@ class _NotifikasiScreenState extends State<NotifikasiScreen> {
             _buildHeader(),
             const SizedBox(height: 16),
             _buildFilterChips(),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _buildSectionHeader('HARI INI', 'Agustus 2026'),
-                    const SizedBox(height: 12),
-                    _buildPembayaranNotification(),
-                    const SizedBox(height: 12),
-                    _buildAgendaNotification(),
-                    const SizedBox(height: 24),
-                    _buildSectionHeader('KEMARIN', '13 Ags 2026'),
-                    const SizedBox(height: 12),
-                    _buildPengumumanNotification(),
-                    const SizedBox(height: 12),
-                    _buildSistemNotification(),
+                    if (isEmpty) ...[
+                      _buildEmptyStateCard(),
+                    ] else if (_selectedFilter == 'Semua (4)') ...[
+                      _buildSectionHeader('HARI INI', 'Agustus 2026'),
+                      const SizedBox(height: 12),
+                      _buildPembayaranNotification(),
+                      const SizedBox(height: 12),
+                      _buildAgendaNotification(),
+                      const SizedBox(height: 20),
+                      _buildSectionHeader('KEMARIN', '13 Ags 2026'),
+                      const SizedBox(height: 12),
+                      _buildPengumumanNotification(),
+                      const SizedBox(height: 12),
+                      _buildSistemNotification(),
+                    ] else if (_selectedFilter.startsWith('Pembayaran')) ...[
+                      _buildSectionHeader('HARI INI', 'Agustus 2026'),
+                      const SizedBox(height: 12),
+                      _buildPembayaranNotification(),
+                    ] else if (_selectedFilter.startsWith('Agenda')) ...[
+                      _buildSectionHeader('HARI INI', 'Agustus 2026'),
+                      const SizedBox(height: 12),
+                      _buildAgendaNotification(),
+                    ] else if (_selectedFilter.startsWith('Pengumuman')) ...[
+                      _buildSectionHeader('KEMARIN', '13 Ags 2026'),
+                      const SizedBox(height: 12),
+                      _buildPengumumanNotification(),
+                      const SizedBox(height: 12),
+                      _buildSistemNotification(),
+                    ],
                     const SizedBox(height: 32),
                     _buildFooterInfo(),
                     const SizedBox(height: 32),
@@ -84,22 +104,48 @@ class _NotifikasiScreenState extends State<NotifikasiScreen> {
 
   Widget _buildTopBar() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           GestureDetector(
             onTap: () => Navigator.pop(context),
-            child: const Icon(Icons.arrow_back, color: Colors.black87),
+            child: const Icon(Icons.arrow_back, color: Colors.black87, size: 22),
           ),
-          Container(
-            width: 32,
-            height: 32,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: Color(0xFFFFD1D1),
+          Row(
+            children: [
+              Image.asset(
+                'assets/logo.png',
+                width: 22,
+                height: 22,
+                errorBuilder: (context, error, stackTrace) =>
+                    Icon(Icons.holiday_village_outlined, color: _primary, size: 22),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'GateLand',
+                style: GoogleFonts.inter(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: _primary,
+                ),
+              ),
+            ],
+          ),
+          GestureDetector(
+            onTap: () => Navigator.pushNamed(context, '/profile'),
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: _primary.withValues(alpha: 0.3), width: 1.5),
+              ),
+              child: const CircleAvatar(
+                radius: 16,
+                backgroundColor: Color(0xFFFFD1D1),
+                backgroundImage: AssetImage('assets/profile_avatar.jpg'),
+              ),
             ),
-            child: const Icon(Icons.person, color: _primary, size: 20),
           ),
         ],
       ),
@@ -110,7 +156,6 @@ class _NotifikasiScreenState extends State<NotifikasiScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Text(
             'Pusat Notifikasi',
@@ -121,11 +166,11 @@ class _NotifikasiScreenState extends State<NotifikasiScreen> {
               letterSpacing: -0.5,
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFE4E6),
+              color: const Color(0xFFFFECEC),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
@@ -133,10 +178,193 @@ class _NotifikasiScreenState extends State<NotifikasiScreen> {
               style: GoogleFonts.inter(
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
-                color: const Color(0xFFE11D48),
+                color: const Color(0xFFE53935),
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyStateCard() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFFFEBEB), width: 1.5),
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFAFAFF), Color(0xFFFFF4F4)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 15,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          const SizedBox(height: 12),
+          // Illustration Bell with Check & Sparkles
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFEFFE),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFFFFDEDE), width: 6),
+                ),
+                child: const Center(
+                  child: Icon(Icons.notifications_active, color: _primary, size: 48),
+                ),
+              ),
+              Positioned(
+                top: 38,
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: const BoxDecoration(
+                    color: _primary,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.check, color: Colors.white, size: 14),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Belum Ada Notifikasi Baru',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: _primary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          RichText(
+            textAlign: TextAlign.center,
+            text: TextSpan(
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                color: Colors.black54,
+                height: 1.5,
+              ),
+              children: const [
+                TextSpan(text: 'Semua informasi dan pengumuman dari pengurus\n'),
+                TextSpan(
+                  text: 'RT 04',
+                  style: TextStyle(fontWeight: FontWeight.bold, color: _primary),
+                ),
+                TextSpan(text: ' sudah Anda ketahui. Kotak notifikasi Anda\nbersih dan mutakhir!'),
+              ],
+            ),
+          ),
+          const SizedBox(height: 28),
+          // Primary Button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => Navigator.pushNamed(context, '/tagihan'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _primary,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                elevation: 0,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.receipt_long_outlined, size: 18, color: Colors.white),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Cek Tagihan Bulan Ini',
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Secondary Buttons Row
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pushNamed(context, '/dashboard'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFCE6E6),
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.calendar_today_outlined, size: 14, color: _primary),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Agenda Warga',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: _primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () {
+                    setState(() {});
+                  },
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    side: const BorderSide(color: Color(0xFFE2E8F0)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.refresh, size: 14, color: _primary),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Muat Ulang',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: _primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
         ],
       ),
     );
@@ -242,12 +470,52 @@ class _NotifikasiScreenState extends State<NotifikasiScreen> {
       tagText: 'AGENDA BULANAN',
       tagBg: _badgePurpleBg,
       tagTextColor: _badgePurpleText,
-      timeText: '2 jam yang lalu',
+      timeText: '2 jam yang lalu • 12.40',
       title: 'Agenda Baru: Kerja Bakti Lingkungan',
       content: 'Pengurus RT 04 mengundang seluruh warga Perumahan Sekar Indah untuk berpartisipasi pada Minggu, 15 Ags 2026 pukul 07:00 WIB di Sekitar Lapangan & Selokan Warga.',
       locationText: 'Pos RT 4 RW 8',
       actionText: 'Lihat Detail Agenda',
       actionIcon: Icons.arrow_forward,
+      onActionTap: () {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Row(
+              children: [
+                const Icon(Icons.calendar_today, color: _primary, size: 20),
+                const SizedBox(width: 8),
+                Text('Kerja Bakti Lingkungan', style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: _primary)),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('🗓️ Minggu, 15 Ags 2026 (07:00 WIB)', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 6),
+                Text('📍 Sekitar Lapangan & Selokan Warga (Pos RT 4 RW 8)', style: GoogleFonts.inter(fontSize: 12, color: Colors.black87)),
+                const SizedBox(height: 12),
+                Text('Mohon partisipasi warga membawa alat kebersihan masing-masing demi kenyamanan lingkungan bersama klaster GateLand.', style: GoogleFonts.inter(fontSize: 12, color: Colors.black54, height: 1.4)),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Tutup'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: _primary),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  Navigator.pushNamed(context, '/dashboard');
+                },
+                child: const Text('Buka di Beranda', style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -265,6 +533,40 @@ class _NotifikasiScreenState extends State<NotifikasiScreen> {
       content: 'Pengangkutan sampah minggu ini dimajukan menjadi Jumat, 14 Ags pukul 07.00 WIB dikarenakan hari libur nasional. Mohon letakkan tong sampah di luar pagar depan.',
       actionText: 'Baca Surat Edaran',
       actionIcon: Icons.keyboard_arrow_right,
+      onActionTap: () {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Row(
+              children: [
+                const Icon(Icons.article_outlined, color: _primary, size: 22),
+                const SizedBox(width: 8),
+                Text('Surat Edaran RT 04', style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: _primary)),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('No: 014/SE-RT04/VIII/2026', style: GoogleFonts.inter(fontSize: 11, color: Colors.black45)),
+                  const SizedBox(height: 10),
+                  Text('Perihal: Penyesuaian Waktu Pengangkutan Sampah', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold, color: _primary)),
+                  const SizedBox(height: 8),
+                  Text('Sehubungan dengan hari libur nasional peringatan kemerdekaan, armada pengangkut kebersihan klaster GateLand akan beroperasi lebih awal pada Jumat, 14 Agustus 2026 mulai pukul 07.00 WIB.\n\nAtas perhatian dan kerja sama Bapak/Ibu warga kami ucapkan terima kasih.', style: GoogleFonts.inter(fontSize: 12, color: Colors.black87, height: 1.5)),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Mengerti'),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

@@ -46,6 +46,13 @@ class _LupaKataSandiScreenState extends State<LupaKataSandiScreen> {
           style: const TextStyle(fontSize: 13, height: 1.4),
         ),
         actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.pop(context);
+            },
+            child: const Text('Nanti Saja'),
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: _primaryColor,
@@ -53,9 +60,9 @@ class _LupaKataSandiScreenState extends State<LupaKataSandiScreen> {
             ),
             onPressed: () {
               Navigator.pop(ctx);
-              Navigator.pop(context);
+              Navigator.pushReplacementNamed(context, '/ubah-kata-sandi');
             },
-            child: const Text('Mengerti', style: TextStyle(color: Colors.white)),
+            child: const Text('Lanjut Buat Sandi Baru', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -181,15 +188,15 @@ class _LupaKataSandiScreenState extends State<LupaKataSandiScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF3E8FF),
-                        borderRadius: BorderRadius.circular(12),
+                        color: const Color(0xFFF1F3F9),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         profile.unit,
                         style: const TextStyle(
-                          fontSize: 10,
+                          fontSize: 11,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFF6B21A8),
+                          color: Color(0xFF555B6D),
                         ),
                       ),
                     ),
@@ -311,15 +318,7 @@ class _LupaKataSandiScreenState extends State<LupaKataSandiScreen> {
                           ],
                         ),
                       ),
-                      Icon(
-                        _selectedMethod == 'whatsapp'
-                            ? Icons.radio_button_checked
-                            : Icons.radio_button_off,
-                        color: _selectedMethod == 'whatsapp'
-                            ? const Color(0xFF09095E)
-                            : Colors.black26,
-                        size: 20,
-                      ),
+                      _buildCustomRadio(_selectedMethod == 'whatsapp'),
                     ],
                   ),
                 ),
@@ -385,15 +384,7 @@ class _LupaKataSandiScreenState extends State<LupaKataSandiScreen> {
                           ],
                         ),
                       ),
-                      Icon(
-                        _selectedMethod == 'email'
-                            ? Icons.radio_button_checked
-                            : Icons.radio_button_off,
-                        color: _selectedMethod == 'email'
-                            ? const Color(0xFF09095E)
-                            : Colors.black26,
-                        size: 20,
-                      ),
+                      _buildCustomRadio(_selectedMethod == 'email'),
                     ],
                   ),
                 ),
@@ -570,5 +561,27 @@ class _LupaKataSandiScreenState extends State<LupaKataSandiScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildCustomRadio(bool selected) {
+    if (selected) {
+      return Container(
+        width: 22,
+        height: 22,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.black87, width: 6),
+        ),
+      );
+    } else {
+      return Container(
+        width: 20,
+        height: 20,
+        decoration: const BoxDecoration(
+          color: Color(0xFFE2E8F0),
+          shape: BoxShape.circle,
+        ),
+      );
+    }
   }
 }
