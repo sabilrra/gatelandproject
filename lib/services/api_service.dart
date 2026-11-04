@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -9,6 +10,9 @@ class ApiService {
   // - iOS Simulator / macOS / Web: localhost:3000
   // - Real Device Android/iOS: IP Lokal Komputer (misal 192.168.1.x:3000)
   static String get baseUrl {
+    if (kIsWeb) {
+      return 'http://localhost:3000';
+    }
     if (Platform.isAndroid) {
       return 'http://10.0.2.2:3000';
     }
@@ -142,6 +146,67 @@ class ApiService {
         'status': 'error',
         'message': 'Gagal menjalankan aksi gerbang: $e',
       };
+    }
+  }
+
+  // ─── PAYMENTS APIS ─────────────────────────────────────────
+  static Future<Map<String, dynamic>> getMyBill() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/payments/my-bill'),
+        headers: await _headers(withAuth: true),
+      );
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'status': 'error', 'message': 'Gagal mengambil tagihan: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> createQrisTransaction({
+    int? billId,
+    int? amount,
+    String? residentName,
+    String? unit,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/payments/create-qris'),
+        headers: await _headers(withAuth: true),
+        body: jsonEncode({
+          'billId': billId,
+          'amount': amount ?? 175000,
+          'residentName': residentName ?? 'Sabila Aulia',
+          'unit': unit ?? 'Unit 1',
+        }),
+      );
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'status': 'error', 'message': 'Gagal membuat QRIS: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> simulatePayQris(String transactionId) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/payments/simulate-pay'),
+        headers: await _headers(withAuth: false),
+        body: jsonEncode({'transactionId': transactionId}),
+      );
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'status': 'error', 'message': 'Gagal simulasi bayar: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> checkPaymentStatus(String transactionId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/payments/status/$transactionId'),
+        headers: await _headers(withAuth: false),
+      );
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'status': 'error', 'message': 'Gagal cek status: $e'};
     }
   }
 }

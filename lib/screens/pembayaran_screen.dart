@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../services/api_service.dart';
 
 class PembayaranScreen extends StatefulWidget {
   const PembayaranScreen({super.key});
@@ -21,6 +23,99 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
   static const Color _greyText = Color(0xFF6B7280);
 
   int _currentIndex = 1;
+  String? _transactionId;
+  bool _isLoading = false;
+  bool _isPaid = false;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _initQris();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _initQris() async {
+    setState(() => _isLoading = true);
+    final res = await ApiService.createQrisTransaction();
+    if (mounted) {
+      if (res['status'] == 'success' && res['data'] != null) {
+        setState(() {
+          _transactionId = res['data']['transactionId'];
+          _isLoading = false;
+        });
+        _startPolling();
+      } else {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  void _startPolling() {
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 3), (t) async {
+      if (_transactionId == null || _isPaid || !mounted) return;
+      final res = await ApiService.checkPaymentStatus(_transactionId!);
+      if (res['status'] == 'success' && res['data']?['isPaid'] == true) {
+        t.cancel();
+        if (mounted) {
+          setState(() => _isPaid = true);
+          _onPaymentSuccess();
+        }
+      }
+    });
+  }
+
+  Future<void> _handleSimulatePay() async {
+    if (_transactionId == null) {
+      // Jika belum ada ID, buat dulu baru bayar
+      await _initQris();
+    }
+    if (_transactionId == null) return;
+
+    setState(() => _isLoading = true);
+    final res = await ApiService.simulatePayQris(_transactionId!);
+    if (mounted) {
+      setState(() => _isLoading = false);
+      if (res['status'] == 'success') {
+        setState(() => _isPaid = true);
+        _timer?.cancel();
+        _onPaymentSuccess();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(res['message'] ?? 'Gagal memproses simulasi')),
+        );
+      }
+    }
+  }
+
+  void _onPaymentSuccess() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        backgroundColor: Color(0xFF1A7A4A),
+        content: Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.white, size: 20),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text('Pembayaran QRIS Berhasil! Mengalihkan ke kwitansi...'),
+            ),
+          ],
+        ),
+        duration: Duration(seconds: 2),
+      ),
+    );
+    Future.delayed(const Duration(milliseconds: 1200), () {
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/kwitansi');
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -392,6 +487,18 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                     ],
                   ),
                 ),
+                if (_transactionId != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    _transactionId!,
+                    style: GoogleFonts.inter(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black45,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -644,25 +751,69 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
       ),
       padding: const EdgeInsets.all(16),
       child: SafeArea(
-        child: SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            onPressed: () {
-              // Untuk prototype, kita arahkan ke kwitansi. 
-              // Jika ingin simulasi manual, bisa diubah ke /tagihan
-              Navigator.pushNamed(context, '/kwitansi');
-            },
-            icon: const Icon(Icons.check_circle_outline, size: 18, color: Colors.white),
-            label: Text('Cek Status Pembayaran',
-                style: GoogleFonts.inter(
-                    fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _primary,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              elevation: 0,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _isLoading ? null : _handleSimulatePay,
+                icon: _isLoading
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.bolt, size: 20, color: Colors.white),
+                label: Text(
+                  _isLoading ? 'Memproses Transaksi...' : '⚡ Simulasi Bayar QRIS (Demo Sandbox)',
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1A7A4A), // Emerald green
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
+                ),
+              ),
             ),
-          ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  if (_transactionId != null) {
+                    final res = await ApiService.checkPaymentStatus(_transactionId!);
+                    if (res['status'] == 'success' && res['data']?['isPaid'] == true) {
+                      _onPaymentSuccess();
+                      return;
+                    }
+                  }
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Menunggu pembayaran QRIS discan...')),
+                  );
+                },
+                icon: const Icon(Icons.sync, size: 16, color: _primary),
+                label: Text(
+                  'Cek Status Manual',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: _primary,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  side: const BorderSide(color: _cardBorder),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

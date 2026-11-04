@@ -16,6 +16,7 @@ import 'screens/ubah_kata_sandi_screen.dart';
 import 'screens/lupa_kata_sandi_screen.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
 
