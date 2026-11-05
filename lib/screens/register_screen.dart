@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../data/dummy_data.dart';
+import '../services/api_service.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -19,6 +20,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscurePassword = true;
   bool _agreeTerms = false;
   bool _hasRegisterError = false;
+  bool _isLoading = false;
 
   final Color _primaryColor = const Color(0xFF090580);
   final Color _bgColor = const Color(0xFFFAF8FF);
@@ -27,19 +29,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final Color _errorDarkRed = const Color(0xFF93000A);
   final Color _errorBg = const Color(0xFFFFDAD6);
 
-  void _register() {
-    if (_nameController.text.trim().isEmpty ||
-        _emailController.text.trim().isEmpty ||
-        _phoneController.text.trim().isEmpty ||
-        _addressController.text.trim().isEmpty ||
-        _passwordController.text.trim().isEmpty) {
+  Future<void> _register() async {
+    final name = _nameController.text.trim();
+    final email = _emailController.text.trim();
+    final phone = _phoneController.text.trim();
+    final address = _addressController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (name.isEmpty || email.isEmpty || phone.isEmpty || address.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Semua field wajib diisi')),
       );
       return;
     }
 
-    if (_passwordController.text.trim().length < 8) {
+    if (password.length < 8) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Kata sandi minimal 8 karakter')),
       );
@@ -53,38 +57,74 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    final phone = _phoneController.text.trim();
-    // Check if phone or email is already registered (or if phone starts with 812-3456-7890)
-    if (phone.contains('8123456789') || phone.contains('812-3456-7890')) {
-      setState(() {
-        _hasRegisterError = true;
-      });
-      return;
-    }
+    setState(() => _isLoading = true);
 
-    final newUser = UserData(
-      nama: _nameController.text.trim(),
-      email: _emailController.text.trim(),
-      noWhatsapp: '+62$phone',
-      alamat: _addressController.text.trim(),
-      password: _passwordController.text.trim(),
-    );
-
-    final success = DummyDataStore().register(newUser);
-
-    if (success) {
-      setState(() => _hasRegisterError = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Registrasi Berhasil! Silakan login dengan akun baru Anda.'),
-          duration: Duration(seconds: 2),
-        ),
+    try {
+      final res = await ApiService().register(
+        name: name,
+        email: email,
+        password: password,
+        role: 'USER',
       );
-      Navigator.pop(context);
-    } else {
+
+      if (res['status'] == 'success') {
+        final newUser = UserData(
+          nama: name,
+          email: email,
+          noWhatsapp: '+62$phone',
+          alamat: address,
+          password: password,
+        );
+        DummyDataStore().register(newUser);
+
+        setState(() {
+          _hasRegisterError = false;
+          _isLoading = false;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Registrasi Berhasil! Silakan login dengan akun baru Anda.'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+          Navigator.pop(context);
+        }
+        return;
+      } else {
+        setState(() {
+          _hasRegisterError = true;
+          _isLoading = false;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(res['message'] ?? 'Registrasi gagal.'),
+              backgroundColor: _errorRed,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      final cleanMsg = e.toString().replaceAll('Exception: ', '');
       setState(() {
         _hasRegisterError = true;
+        _isLoading = false;
       });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(cleanMsg.isNotEmpty ? cleanMsg : 'Registrasi gagal.'),
+            backgroundColor: _errorRed,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -526,25 +566,35 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                       // Register Button
                       ElevatedButton(
-                        onPressed: _register,
+                        onPressed: _isLoading ? null : _register,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _primaryColor,
+                          disabledBackgroundColor: _primaryColor.withValues(alpha: 0.6),
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              _hasRegisterError ? 'Coba Daftar Lagi' : 'Daftar Sekarang',
-                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-                            ),
-                            const SizedBox(width: 8),
-                            const Icon(Icons.arrow_forward, size: 18, color: Colors.white),
-                          ],
-                        ),
+                        child: _isLoading
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    _hasRegisterError ? 'Coba Daftar Lagi' : 'Daftar Sekarang',
+                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Icon(Icons.arrow_forward, size: 18, color: Colors.white),
+                                ],
+                              ),
                       ),
                       const SizedBox(height: 20),
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../services/api_service.dart';
 
 class PembayaranScreen extends StatefulWidget {
   const PembayaranScreen({super.key});
@@ -23,8 +24,9 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
   final int _currentIndex = 1;
   final ScrollController _scrollController = ScrollController();
   String? _selectedMethod; // null = Pilih metode, 'qris' = QRIS, 'transfer' = Transfer Manual
+  String? _transactionId;
 
-  void _selectMethod(String? method) {
+  void _selectMethod(String? method) async {
     setState(() {
       _selectedMethod = method;
     });
@@ -34,6 +36,20 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOut,
       );
+    }
+    if (method == 'qris' && _transactionId == null) {
+      try {
+        final res = await ApiService().createQrisTransaction(
+          amount: 175000,
+          residentName: 'Sabila Aulia',
+          unit: 'Unit 1',
+        );
+        if (mounted) {
+          setState(() {
+            _transactionId = res['transactionId'] as String?;
+          });
+        }
+      } catch (_) {}
     }
   }
 
@@ -1246,8 +1262,24 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
         child: SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
-            onPressed: () {
-              Navigator.pushNamed(context, '/kwitansi');
+            onPressed: () async {
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (ctx) => const Center(
+                  child: CircularProgressIndicator(),
+                ),
+              );
+
+              // Konfirmasi / simulasi penyelesaian pembayaran ke backend
+              try {
+                await ApiService().simulatePayQris(_transactionId);
+              } catch (_) {}
+
+              if (mounted) {
+                Navigator.pop(context); // Tutup loading dialog
+                Navigator.pushNamed(context, '/kwitansi');
+              }
             },
             icon: const Icon(Icons.check_circle_outline, size: 18, color: Colors.white),
             label: Text('Cek Status Pembayaran',

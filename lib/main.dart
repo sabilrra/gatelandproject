@@ -14,8 +14,11 @@ import 'screens/profile_screen.dart';
 import 'screens/edit_profil_screen.dart';
 import 'screens/ubah_kata_sandi_screen.dart';
 import 'screens/lupa_kata_sandi_screen.dart';
+import 'services/api_service.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await ApiService().init();
   runApp(const MyApp());
 }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../data/dummy_data.dart';
+import '../services/api_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -14,6 +15,44 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final Color _cardBorderColor = const Color(0xFFFFEBEB);
 
   int _currentIndex = 0;
+  Map<String, dynamic>? _activeBill;
+  List<dynamic> _announcements = [];
+  bool _isLoadingData = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDashboardData();
+  }
+
+  Future<void> _loadDashboardData() async {
+    setState(() => _isLoadingData = true);
+    try {
+      final bill = await ApiService().getMyBill();
+      final announcements = await ApiService().getAnnouncements();
+      if (mounted) {
+        setState(() {
+          _activeBill = bill;
+          _announcements = announcements;
+          _isLoadingData = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingData = false);
+    }
+  }
+
+  String _formatCurrency(dynamic amount) {
+    if (amount == null) return 'Rp 175.000';
+    final int val = amount is int ? amount : int.tryParse(amount.toString()) ?? 175000;
+    final s = val.toString();
+    final buf = StringBuffer();
+    for (int i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) buf.write('.');
+      buf.write(s[i]);
+    }
+    return 'Rp ${buf.toString()}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,12 +62,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Scaffold(
       backgroundColor: _bgColor,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 1. Top Navigation / App Bar
+        child: RefreshIndicator(
+          onRefresh: _loadDashboardData,
+          color: _primaryColor,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (_isLoadingData)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: LinearProgressIndicator(color: _primaryColor, backgroundColor: _primaryColor.withValues(alpha: 0.1)),
+                  ),
+                // 1. Top Navigation / App Bar
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -125,111 +173,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(height: 24),
 
               // 3. Billing Card (Tagihan)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFFAFAFF), Color(0xFFFFF2F2)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.03),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF4B4B8A),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: const Text(
-                            'Agustus 2026',
-                            style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFBE4E4),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.schedule, size: 12, color: _primaryColor),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Jatuh Tempo: 10 Agustus',
-                                style: TextStyle(color: _primaryColor, fontSize: 11, fontWeight: FontWeight.w700),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      'TOTAL TAGIHAN IURAN BULANAN',
-                      style: TextStyle(color: _primaryColor.withValues(alpha: 0.8), fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 0.5),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'IPL, Kebersihan, Keamanan, & Kas RT',
-                      style: TextStyle(color: Colors.black54, fontSize: 12),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Rp 175.000',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w800,
-                        color: _primaryColor,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.pushNamed(context, '/tagihan');
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _primaryColor,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 0,
-                        ),
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'Bayar Sekarang',
-                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
-                            ),
-                            SizedBox(width: 8),
-                            Icon(Icons.arrow_forward, size: 16, color: Colors.white),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              _buildBillingCard(),
               const SizedBox(height: 32),
 
               // 4. Pengumuman Terbaru
@@ -259,25 +203,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               const SizedBox(height: 16),
               
-              _buildAnnouncementCard(
-                tag: 'Penting',
-                tagColor: const Color(0xFFF6C8C8),
-                tagTextColor: const Color(0xFFA02020),
-                date: '16 Sep 2026',
-                title: 'Perubahan Jadwal Pengangkutan Sampah',
-                content: 'Pengangkutan sampah minggu ini akan dilakukan pada hari Jumat, 18 September. Mohon meletakkan tempat sampah di depan pagar sebelum pukul 07.00.',
-                isImportant: true,
-              ),
-              const SizedBox(height: 16),
-              _buildAnnouncementCard(
-                tag: 'Info',
-                tagColor: const Color(0xFFF9E4E4),
-                tagTextColor: const Color(0xFFA02020),
-                date: '14 Sep 2026',
-                title: 'Gangguan Distribusi Air',
-                content: 'Distribusi air akan mengalami gangguan sementara pada Senin, 21 September karena perawatan pompa tandon utama. Harap warga menyiapkan kebutuhan air sebelumnya.',
-                isImportant: false,
-              ),
+              if (_announcements.isNotEmpty) ...[
+                for (final item in _announcements.take(3)) ...[
+                  _buildAnnouncementCard(
+                    tag: (item['category'] ?? 'Pengumuman').toString(),
+                    tagColor: item['urgency'] == 'penting' ? const Color(0xFFF6C8C8) : const Color(0xFFF9E4E4),
+                    tagTextColor: const Color(0xFFA02020),
+                    date: (item['eventDate'] ?? (item['createdAt'] != null ? item['createdAt'].toString().substring(0, 10) : 'Terbaru')).toString(),
+                    title: (item['title'] ?? '').toString(),
+                    content: (item['content'] ?? '').toString(),
+                    isImportant: item['urgency'] == 'penting',
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ] else ...[
+                _buildAnnouncementCard(
+                  tag: 'Info',
+                  tagColor: const Color(0xFFF9E4E4),
+                  tagTextColor: const Color(0xFFA02020),
+                  date: 'Hari ini',
+                  title: 'Belum Ada Pengumuman Baru',
+                  content: 'Pengumuman resmi dari pengelola cluster akan tampil di sini secara otomatis saat diterbitkan oleh Admin.',
+                  isImportant: false,
+                ),
+              ],
               const SizedBox(height: 32),
 
               // 5. Agenda Warga
@@ -396,6 +345,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
         ),
+        ),
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
@@ -445,6 +395,124 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildBillingCard() {
+    final bool isPaid = _activeBill?['status'] == 'PAID';
+    final String billMonth = (_activeBill?['month'] ?? 'Agustus 2026').toString();
+    final String billDueDate = (_activeBill?['dueDate'] ?? '10 Agustus').toString();
+    final String billAmount = _formatCurrency(_activeBill?['amount']);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFAFAFF), Color(0xFFFFF2F2)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF4B4B8A),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  billMonth,
+                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isPaid ? const Color(0xFFE6F9F1) : const Color(0xFFFBE4E4),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  children: [
+                    Icon(isPaid ? Icons.check_circle : Icons.schedule, size: 12, color: isPaid ? const Color(0xFF1A7A4A) : _primaryColor),
+                    const SizedBox(width: 4),
+                    Text(
+                      isPaid ? 'Lunas' : 'Jatuh Tempo: $billDueDate',
+                      style: TextStyle(
+                        color: isPaid ? const Color(0xFF1A7A4A) : _primaryColor, 
+                        fontSize: 11, 
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Text(
+            isPaid ? 'STATUS IURAN BULAN INI' : 'TOTAL TAGIHAN IURAN BULANAN',
+            style: TextStyle(color: _primaryColor.withValues(alpha: 0.8), fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 0.5),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            isPaid ? 'Terima kasih, tagihan Anda telah terverifikasi lunas.' : 'IPL, Kebersihan, Keamanan, & Kas RT',
+            style: const TextStyle(color: Colors.black54, fontSize: 12),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            isPaid ? 'LUNAS' : billAmount,
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+              color: isPaid ? const Color(0xFF1A7A4A) : _primaryColor,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () async {
+                await Navigator.pushNamed(context, isPaid ? '/riwayat' : '/tagihan');
+                _loadDashboardData();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isPaid ? const Color(0xFF1A7A4A) : _primaryColor,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    isPaid ? 'Lihat Bukti Kwitansi' : 'Bayar Sekarang',
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.arrow_forward, size: 16, color: Colors.white),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

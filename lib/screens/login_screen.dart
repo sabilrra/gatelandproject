@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../data/dummy_data.dart';
+import '../services/api_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -10,7 +11,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController _emailController = TextEditingController(text: 'azizah.putri@gateland.id');
+  final TextEditingController _emailController = TextEditingController(text: 'sabila@gmail.com');
   final TextEditingController _passwordController = TextEditingController(text: 'password123');
   bool _obscurePassword = true;
   bool _rememberMe = true;
@@ -27,21 +28,68 @@ class _LoginScreenState extends State<LoginScreen> {
   final Color _errorBg = const Color(0xFFFFDAD6);
 
   bool _hasLoginError = false;
+  bool _isLoading = false;
+  String _errorMessage = 'Password yang kamu masukkan salah.';
 
-  void _login() {
+  Future<void> _login() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
-    // Check credential matching
-    final user = DummyDataStore().login(email, password);
-    if (user != null || password == 'password123') {
-      setState(() => _hasLoginError = false);
-      DummyDataStore().currentUser = user ?? DummyDataStore().activeUser;
-      Navigator.pushReplacementNamed(context, '/dashboard');
-    } else {
+    if (email.isEmpty || password.isEmpty) {
       setState(() {
         _hasLoginError = true;
+        _errorMessage = 'Email dan password wajib diisi.';
       });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _hasLoginError = false;
+    });
+
+    try {
+      final res = await ApiService().login(email, password);
+      if (res['status'] == 'success') {
+        final userData = res['data']?['user'];
+        final userName = userData?['name'] ?? 'Sabila Aulia';
+        final userEmail = userData?['email'] ?? email;
+
+        DummyDataStore().currentUser = UserData(
+          nama: userName,
+          email: userEmail,
+          noWhatsapp: '0812-3456-7890',
+          alamat: 'Cluster Anggrek, Blok B2 No. 14',
+          password: password,
+        );
+
+        setState(() {
+          _hasLoginError = false;
+          _isLoading = false;
+        });
+
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, '/dashboard');
+        }
+        return;
+      } else {
+        setState(() {
+          _hasLoginError = true;
+          _errorMessage = res['message'] ?? 'Email atau password salah.';
+          _isLoading = false;
+        });
+        return;
+      }
+    } catch (e) {
+      final cleanMsg = e.toString().replaceAll('Exception: ', '');
+      setState(() {
+        _hasLoginError = true;
+        _errorMessage = cleanMsg.isNotEmpty ? cleanMsg : 'Email atau password salah.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -309,7 +357,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              'Password yang kamu masukkan salah.',
+                              _errorMessage,
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w600,
@@ -400,26 +448,36 @@ class _LoginScreenState extends State<LoginScreen> {
 
               // Login Button
               ElevatedButton(
-                onPressed: _login,
+                onPressed: _isLoading ? null : _login,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _primaryColor,
+                  disabledBackgroundColor: _primaryColor.withValues(alpha: 0.6),
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
                   elevation: 0,
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      _hasLoginError ? 'Coba Masuk Lagi' : 'Masuk',
-                      style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white),
-                    ),
-                    const SizedBox(width: 8),
-                    const Icon(Icons.arrow_forward, size: 16, color: Colors.white),
-                  ],
-                ),
+                child: _isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            _hasLoginError ? 'Coba Masuk Lagi' : 'Masuk',
+                            style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white),
+                          ),
+                          const SizedBox(width: 8),
+                          const Icon(Icons.arrow_forward, size: 16, color: Colors.white),
+                        ],
+                      ),
               ),
               const SizedBox(height: 24),
 

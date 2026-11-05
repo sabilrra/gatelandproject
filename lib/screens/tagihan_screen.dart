@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../services/api_service.dart';
 
 // ── Model ────────────────────────────────────────────────────────────────────
 enum TagihanStatus { menunggu, lunas }
@@ -24,45 +25,6 @@ class TagihanItem {
     required this.icon,
   });
 }
-
-final List<TagihanItem> _dummyTagihan = [
-  TagihanItem(
-    id: '1',
-    nama: 'Iuran Keamanan & Satpam 24 Jam',
-    deskripsi: 'Portal otomatis & patroli malam',
-    jumlah: 50000,
-    status: TagihanStatus.menunggu,
-    tipe: TagihanTipe.wajib,
-    icon: Icons.shield_outlined,
-  ),
-  TagihanItem(
-    id: '2',
-    nama: 'Iuran Kebersihan & Sampah',
-    deskripsi: 'Jadwal angkut: Sen, Rab, Sab',
-    jumlah: 100000,
-    status: TagihanStatus.menunggu,
-    tipe: TagihanTipe.wajib,
-    icon: Icons.local_shipping_outlined,
-  ),
-  TagihanItem(
-    id: '3',
-    nama: 'Kas RT & Sosial Warga',
-    deskripsi: 'Kas Bulanan RT & Dana Darurat',
-    jumlah: 25000,
-    status: TagihanStatus.menunggu,
-    tipe: TagihanTipe.wajib,
-    icon: Icons.home_outlined,
-  ),
-  TagihanItem(
-    id: '4',
-    nama: 'Iuran Perbaikan Jalan & Paving',
-    deskripsi: 'Lunas pada 28 Agu 2026 \u2022 QRIS',
-    jumlah: 75000,
-    status: TagihanStatus.lunas,
-    tipe: TagihanTipe.iuranKhusus,
-    icon: Icons.check_circle_outline,
-  ),
-];
 
 String _formatRupiah(int amount) {
   final s = amount.toString();
@@ -95,30 +57,79 @@ class _TagihanScreenState extends State<TagihanScreen> {
   static const Color _greenDot = Color(0xFF27AE60);
 
   int _tabIndex = 0;
-  final Set<String> _selected = {'1', '2', '3'};
+  final Set<String> _selected = {};
+  List<TagihanItem> _tagihanItems = [];
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTagihan();
+  }
+
+  Future<void> _loadTagihan() async {
+    setState(() => _isLoading = true);
+    try {
+      final bill = await ApiService().getMyBill();
+      if (bill != null) {
+        final isPaid = bill['status'] == 'PAID';
+        final amount = bill['amount'] is int ? bill['amount'] as int : int.tryParse(bill['amount'].toString()) ?? 175000;
+        final month = (bill['month'] ?? 'Iuran Keamanan & Kebersihan').toString();
+        final dueDate = (bill['dueDate'] ?? '10 Agustus 2026').toString();
+        final unit = (bill['unit'] ?? 'Unit 1').toString();
+
+        final item = TagihanItem(
+          id: (bill['id'] ?? '1').toString(),
+          nama: month,
+          deskripsi: 'Unit $unit • Jatuh Tempo: $dueDate',
+          jumlah: amount,
+          status: isPaid ? TagihanStatus.lunas : TagihanStatus.menunggu,
+          tipe: TagihanTipe.wajib,
+          icon: isPaid ? Icons.check_circle_outline : Icons.shield_outlined,
+        );
+
+        if (mounted) {
+          setState(() {
+            _tagihanItems = [item];
+            _selected.clear();
+            if (!isPaid) _selected.add(item.id);
+            _isLoading = false;
+          });
+        }
+        return;
+      }
+    } catch (_) {}
+
+    if (mounted) {
+      setState(() {
+        _tagihanItems = [];
+        _isLoading = false;
+      });
+    }
+  }
 
   List<TagihanItem> get _filtered {
     switch (_tabIndex) {
       case 1:
-        return _dummyTagihan.where((t) => t.status == TagihanStatus.menunggu).toList();
+        return _tagihanItems.where((t) => t.status == TagihanStatus.menunggu).toList();
       case 2:
-        return _dummyTagihan.where((t) => t.status == TagihanStatus.lunas).toList();
+        return _tagihanItems.where((t) => t.status == TagihanStatus.lunas).toList();
       default:
-        return _dummyTagihan;
+        return _tagihanItems;
     }
   }
 
   List<TagihanItem> get _pending =>
-      _dummyTagihan.where((t) => t.status == TagihanStatus.menunggu).toList();
+      _tagihanItems.where((t) => t.status == TagihanStatus.menunggu).toList();
 
   int get _totalSelected => _filtered
       .where((t) => _selected.contains(t.id) && t.status == TagihanStatus.menunggu)
       .fold(0, (sum, t) => sum + t.jumlah);
 
   int get _totalLunas =>
-      _dummyTagihan.where((t) => t.status == TagihanStatus.lunas).fold(0, (s, t) => s + t.jumlah);
+      _tagihanItems.where((t) => t.status == TagihanStatus.lunas).fold(0, (s, t) => s + t.jumlah);
 
-  bool get _allPendingSelected => _pending.every((t) => _selected.contains(t.id));
+  bool get _allPendingSelected => _pending.isNotEmpty && _pending.every((t) => _selected.contains(t.id));
 
   void _toggleSelectAll(bool? v) {
     setState(() {
@@ -714,6 +725,16 @@ class _TagihanScreenState extends State<TagihanScreen> {
   }
 
   List<Widget> _buildItemList() {
+    if (_isLoading) {
+      return const [
+        Center(
+          child: Padding(
+            padding: EdgeInsets.all(32.0),
+            child: CircularProgressIndicator(),
+          ),
+        ),
+      ];
+    }
     return _filtered.map((item) {
       final isLunas = item.status == TagihanStatus.lunas;
       final isChecked = _selected.contains(item.id);
