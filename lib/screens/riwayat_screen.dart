@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../data/dummy_data.dart';
+import '../services/api_service.dart';
 
 class RiwayatScreen extends StatefulWidget {
   const RiwayatScreen({super.key});
@@ -23,6 +24,47 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
 
   bool _isSearching = false;
   final TextEditingController _searchController = TextEditingController();
+  List<Map<String, dynamic>> _dbRiwayat = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHistory();
+  }
+
+  String _monthName(int m) {
+    const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    if (m >= 1 && m <= 12) return months[m - 1];
+    return 'Bulan';
+  }
+
+  Future<void> _loadHistory() async {
+    try {
+      final list = await ApiService().getMyPaymentHistory();
+      if (list.isNotEmpty && mounted) {
+        setState(() {
+          _dbRiwayat = list.map((item) {
+            final dt = item['createdAt'] != null ? DateTime.tryParse(item['createdAt'].toString()) : null;
+            final isSettled = item['status'] == 'SETTLEMENT';
+            final dateStr = dt != null ? '${dt.day.toString().padLeft(2, '0')} ${_monthName(dt.month)} ${dt.year}' : 'Hari ini';
+            final timeStr = dt != null ? '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')} WIB' : '10:00 WIB';
+
+            final rawAmount = item['amount'] ?? 175000;
+            final formatted = rawAmount.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.');
+
+            return {
+              'title': 'Keamanan & Kebersihan',
+              'amount': 'Rp. $formatted',
+              'method': item['paymentChannel'] ?? 'QRIS',
+              'date': dateStr,
+              'time': timeStr,
+              'isPaid': isSettled,
+            };
+          }).toList();
+        });
+      }
+    } catch (_) {}
+  }
 
   final List<Map<String, dynamic>> _riwayatData = [
     {
@@ -62,9 +104,10 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
   }
 
   List<Map<String, dynamic>> get _filteredRiwayat {
+    final list = _dbRiwayat.isNotEmpty ? _dbRiwayat : _riwayatData;
     final query = _searchController.text.trim().toLowerCase();
-    if (query.isEmpty) return _riwayatData;
-    return _riwayatData.where((d) {
+    if (query.isEmpty) return list;
+    return list.where((d) {
       final title = d['title'].toString().toLowerCase();
       final method = d['method'].toString().toLowerCase();
       final date = d['date'].toString().toLowerCase();

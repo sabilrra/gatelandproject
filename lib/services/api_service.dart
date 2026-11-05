@@ -245,4 +245,72 @@ class ApiService {
       throw Exception(data['message'] ?? 'Gagal mengecek status pembayaran.');
     }
   }
+
+  /// GET /api/payments/my-history
+  Future<List<Map<String, dynamic>>> getMyPaymentHistory() async {
+    final url = Uri.parse('$baseUrl/api/payments/my-history');
+    final response = await http.get(url, headers: _headers(withAuth: true));
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final list = data['data'] as List<dynamic>? ?? [];
+      return list.cast<Map<String, dynamic>>();
+    }
+    return [];
+  }
+
+  /// POST /api/payments/manual-transfer
+  Future<Map<String, dynamic>> submitManualTransfer({
+    required int amount,
+    String? residentName,
+    String? unit,
+    String bankName = 'BCA',
+    String? senderAccount,
+    String? notes,
+  }) async {
+    final url = Uri.parse('$baseUrl/api/payments/manual-transfer');
+    final response = await http.post(
+      url,
+      headers: _headers(withAuth: true),
+      body: jsonEncode({
+        'amount': amount,
+        'residentName': residentName ?? _currentUser?['name'] ?? 'Sabila Aulia',
+        'unit': unit ?? 'Unit 1',
+        'bankName': bankName,
+        'senderAccount': senderAccount,
+        'notes': notes,
+      }),
+    );
+
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return data;
+    } else {
+      throw Exception(data['message'] ?? 'Gagal mengirim konfirmasi transfer.');
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // GITA AI ASSISTANT CHATBOT
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// POST /api/gita/chat
+  Future<String> chatWithGita(String message) async {
+    final url = Uri.parse('$baseUrl/api/gita/chat');
+    final response = await http.post(
+      url,
+      headers: _headers(withAuth: false),
+      body: jsonEncode({
+        'message': message,
+        'userName': _currentUser?['name'] ?? 'Sabila',
+      }),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return (data['data']?['reply'] as String?) ?? 'Terima kasih telah menghubungi Gita.';
+    } else {
+      throw Exception('Gita sedang offline sejenak.');
+    }
+  }
 }

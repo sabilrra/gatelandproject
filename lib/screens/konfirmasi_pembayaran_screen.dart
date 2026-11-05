@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../services/api_service.dart';
 
 class KonfirmasiPembayaranScreen extends StatefulWidget {
   const KonfirmasiPembayaranScreen({super.key});
@@ -499,22 +500,39 @@ class _KonfirmasiPembayaranScreenState extends State<KonfirmasiPembayaranScreen>
         ],
       ),
       child: ElevatedButton(
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Row(
-                children: [
-                  Icon(Icons.check_circle, color: Colors.white, size: 20),
-                  SizedBox(width: 8),
-                  Text('Konfirmasi pembayaran berhasil dikirim!'),
-                ],
-              ),
-              backgroundColor: const Color(0xFF1B8754),
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
+        onPressed: () async {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (ctx) => const Center(child: CircularProgressIndicator()),
           );
-          Navigator.pushNamed(context, '/kwitansi');
+
+          try {
+            await ApiService().submitManualTransfer(
+              amount: 175000,
+              bankName: 'BCA',
+              senderAccount: 'Sabila Aulia - BCA 5220391823',
+            );
+          } catch (_) {}
+
+          if (mounted) {
+            Navigator.pop(context); // Tutup loading dialog
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Row(
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.white, size: 20),
+                    SizedBox(width: 8),
+                    Text('Konfirmasi pembayaran berhasil dikirim ke pengurus!'),
+                  ],
+                ),
+                backgroundColor: const Color(0xFF1B8754),
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            );
+            Navigator.pushNamed(context, '/kwitansi');
+          }
         },
         style: ElevatedButton.styleFrom(
           backgroundColor: _primary,

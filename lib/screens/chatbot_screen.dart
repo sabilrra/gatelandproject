@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../data/dummy_data.dart';
+import '../services/api_service.dart';
 
 class ChatbotScreen extends StatefulWidget {
   const ChatbotScreen({super.key});
@@ -46,8 +47,9 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     ];
   }
 
-  void _sendMessage() {
-    if (_controller.text.trim().isEmpty) return;
+  void _sendMessage() async {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
 
     final now = TimeOfDay.now();
     final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
@@ -55,13 +57,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     setState(() {
       _messages.add({
         'isUser': true,
-        'text': _controller.text.trim(),
-        'time': timeStr,
-      });
-      
-      _messages.add({
-        'isUser': false,
-        'text': 'Maaf, Gita saat ini masih dalam tahap belajar dan belum bisa memproses permintaan baru. Nantikan update selanjutnya ya! 😊',
+        'text': text,
         'time': timeStr,
       });
     });
@@ -78,6 +74,39 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         );
       }
     });
+
+    try {
+      final reply = await ApiService().chatWithGita(text);
+      if (mounted) {
+        setState(() {
+          _messages.add({
+            'isUser': false,
+            'text': reply,
+            'time': timeStr,
+          });
+        });
+
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (_scrollController.hasClients) {
+            _scrollController.animateTo(
+              _scrollController.position.maxScrollExtent,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
+          }
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _messages.add({
+            'isUser': false,
+            'text': 'Gita sedang offline sejenak. Pastikan server backend GateLand aktif ya! 😊',
+            'time': timeStr,
+          });
+        });
+      }
+    }
   }
 
   void _attachSimulatedFile(String fileName) {
