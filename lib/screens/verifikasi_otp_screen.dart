@@ -24,6 +24,8 @@ class _VerifikasiOtpScreenState extends State<VerifikasiOtpScreen> {
 
   late String _email;
   late String _maskedEmail;
+  late String _method;
+  late String _rawTarget;
 
   @override
   void didChangeDependencies() {
@@ -32,6 +34,8 @@ class _VerifikasiOtpScreenState extends State<VerifikasiOtpScreen> {
         ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     _email = args?['email'] as String? ?? '';
     _maskedEmail = args?['maskedEmail'] as String? ?? _email;
+    _method = args?['method'] as String? ?? 'email';
+    _rawTarget = args?['rawTarget'] as String? ?? _email;
   }
 
   @override
@@ -83,7 +87,10 @@ class _VerifikasiOtpScreenState extends State<VerifikasiOtpScreen> {
     });
 
     try {
-      await ApiService().sendOtpEmail(_email);
+      await ApiService().sendOtp(
+        _rawTarget.isNotEmpty ? _rawTarget : _email,
+        method: _method,
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

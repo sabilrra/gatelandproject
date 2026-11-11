@@ -93,18 +93,24 @@ class ApiService {
     required String name,
     required String email,
     required String password,
+    String? whatsapp,
     String role = 'USER',
   }) async {
     final url = Uri.parse('$baseUrl/api/auth/register');
+    final Map<String, dynamic> body = {
+      'name': name.trim(),
+      'email': email.trim(),
+      'password': password,
+      'role': role,
+    };
+    if (whatsapp != null && whatsapp.trim().isNotEmpty) {
+      body['whatsapp'] = whatsapp.trim();
+    }
+
     final response = await http.post(
       url,
       headers: _headers(withAuth: false),
-      body: jsonEncode({
-        'name': name.trim(),
-        'email': email.trim(),
-        'password': password,
-        'role': role,
-      }),
+      body: jsonEncode(body),
     );
 
     final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -294,13 +300,19 @@ class ApiService {
   // OTP — LUPA KATA SANDI
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// POST /api/otp/send — Kirim kode OTP ke email terdaftar
-  Future<Map<String, dynamic>> sendOtpEmail(String email) async {
+  /// POST /api/otp/send — Kirim kode OTP via Email atau WhatsApp (Fonnte)
+  Future<Map<String, dynamic>> sendOtp(
+    String target, {
+    String method = 'email',
+  }) async {
     final url = Uri.parse('$baseUrl/api/otp/send');
     final response = await http.post(
       url,
       headers: _headers(withAuth: false),
-      body: jsonEncode({'email': email.trim().toLowerCase()}),
+      body: jsonEncode({
+        'method': method,
+        'target': target.trim(),
+      }),
     );
 
     final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -310,6 +322,10 @@ class ApiService {
       throw Exception(data['message'] ?? 'Gagal mengirim kode OTP.');
     }
   }
+
+  /// Alias untuk kirim OTP via Email
+  Future<Map<String, dynamic>> sendOtpEmail(String email) =>
+      sendOtp(email, method: 'email');
 
   /// POST /api/otp/verify — Verifikasi OTP dan reset kata sandi
   Future<Map<String, dynamic>> verifyOtp({

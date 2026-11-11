@@ -63,6 +63,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       final res = await ApiService().register(
         name: name,
         email: email,
+        whatsapp: phone,
         password: password,
         role: 'USER',
       );
