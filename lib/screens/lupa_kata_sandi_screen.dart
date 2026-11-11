@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../data/dummy_data.dart';
+import '../services/api_service.dart';
 
 class LupaKataSandiScreen extends StatefulWidget {
   const LupaKataSandiScreen({super.key});
@@ -12,69 +12,62 @@ class _LupaKataSandiScreenState extends State<LupaKataSandiScreen> {
   final Color _primaryColor = const Color(0xFF09095E);
   final Color _bgColor = const Color(0xFFFBFBFF);
 
-  String _selectedMethod = 'whatsapp'; // 'whatsapp' or 'email'
-  final TextEditingController _otherContactController =
-      TextEditingController(text: '08123456789');
+  final TextEditingController _emailController = TextEditingController();
+  bool _isLoading = false;
+  String? _errorMessage;
 
   @override
   void dispose() {
-    _otherContactController.dispose();
+    _emailController.dispose();
     super.dispose();
   }
 
-  void _sendVerificationCode() {
-    final methodLabel = _selectedMethod == 'whatsapp'
-        ? 'WhatsApp (+62 812-3456-7890)'
-        : 'Email (a*********a@gmail.com)';
+  Future<void> _sendVerificationCode() async {
+    final email = _emailController.text.trim();
 
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            const Icon(Icons.check_circle, color: Color(0xFF1B8754), size: 24),
-            const SizedBox(width: 8),
-            Text(
-              'Kode OTP Terkirim!',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: _primaryColor),
-            ),
-          ],
-        ),
-        content: Text(
-          'Kode verifikasi OTP 6-digit berhasil dikirimkan ke $methodLabel. Silakan cek pesan Anda.',
-          style: const TextStyle(fontSize: 13, height: 1.4),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              Navigator.pop(context);
-            },
-            child: const Text('Nanti Saja'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _primaryColor,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            onPressed: () {
-              Navigator.pop(ctx);
-              Navigator.pushReplacementNamed(context, '/ubah-kata-sandi');
-            },
-            child: const Text('Lanjut Buat Sandi Baru', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
+    if (email.isEmpty) {
+      setState(() => _errorMessage = 'Email tidak boleh kosong.');
+      return;
+    }
+
+    // Validasi format email sederhana
+    final emailRegex = RegExp(r'^[\w\-.]+@([\w\-]+\.)+[\w\-]{2,}$');
+    if (!emailRegex.hasMatch(email)) {
+      setState(() => _errorMessage = 'Format email tidak valid.');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final result = await ApiService().sendOtpEmail(email);
+      final maskedEmail = result['data']?['maskedEmail'] as String? ?? email;
+
+      if (!mounted) return;
+
+      // Navigasi ke layar OTP dengan membawa email & maskedEmail
+      Navigator.pushNamed(
+        context,
+        '/verifikasi-otp',
+        arguments: {
+          'email': email,
+          'maskedEmail': maskedEmail,
+        },
+      );
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      });
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final store = DummyDataStore();
-    final user = store.activeUser;
-    final profile = store.profile;
-
     return Scaffold(
       backgroundColor: _bgColor,
       body: SafeArea(
@@ -83,31 +76,22 @@ class _LupaKataSandiScreenState extends State<LupaKataSandiScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. Top Bar (Back button & Avatar Thumbnail)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEEF0FA),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.arrow_back,
-                        color: Colors.black87,
-                        size: 20,
-                      ),
-                    ),
+              // 1. Top Bar (Back button only — tanpa avatar)
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEEF0FA),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  CircleAvatar(
-                    radius: 18,
-                    backgroundImage: AssetImage(profile.fotoUrl),
+                  child: const Icon(
+                    Icons.arrow_back,
+                    color: Colors.black87,
+                    size: 20,
                   ),
-                ],
+                ),
               ),
               const SizedBox(height: 20),
 
@@ -123,23 +107,116 @@ class _LupaKataSandiScreenState extends State<LupaKataSandiScreen> {
               ),
               const SizedBox(height: 6),
               const Text(
-                'Jangan khawatir! Konfirmasi akun terdaftar Anda atau pilih metode pengiriman untuk menerima kata sandi lama.',
+                'Masukkan email yang terdaftar. Kami akan mengirimkan kode OTP untuk mereset kata sandi Anda.',
                 style: TextStyle(
                   fontSize: 12,
                   color: Colors.black54,
                   height: 1.4,
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
 
-              // 3. Verified Account Box
+              // 3. Input Email
+              const Text(
+                'Email Terdaftar',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                height: 52,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: _errorMessage != null
+                        ? const Color(0xFFE53935)
+                        : const Color(0xFFE2E2F0),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: TextField(
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  autocorrect: false,
+                  onChanged: (_) {
+                    if (_errorMessage != null) {
+                      setState(() => _errorMessage = null);
+                    }
+                  },
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Colors.black87,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  decoration: InputDecoration(
+                    prefixIcon: Icon(
+                      Icons.mail_outline,
+                      size: 18,
+                      color: _errorMessage != null
+                          ? const Color(0xFFE53935)
+                          : Colors.black54,
+                    ),
+                    hintText: 'contoh@email.com',
+                    hintStyle: const TextStyle(
+                      fontSize: 13,
+                      color: Colors.black38,
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 16,
+                    ),
+                  ),
+                ),
+              ),
+
+              // Error message
+              if (_errorMessage != null) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      size: 14,
+                      color: Color(0xFFE53935),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        _errorMessage!,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFFE53935),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+
+              const SizedBox(height: 24),
+
+              // 4. Card: Pilih Metode Pengiriman OTP — Email saja
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFF1F1F7)),
+                  border: Border.all(
+                    color: const Color(0xFF3F51B5),
+                    width: 1.5,
+                  ),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.02),
@@ -156,306 +233,51 @@ class _LupaKataSandiScreenState extends State<LupaKataSandiScreen> {
                         color: const Color(0xFFEFF0FE),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Icon(Icons.shield_outlined, color: _primaryColor, size: 20),
+                      child: Icon(
+                        Icons.mail_outline,
+                        color: _primaryColor,
+                        size: 20,
+                      ),
                     ),
                     const SizedBox(width: 12),
-                    Expanded(
+                    const Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              Text(
-                                user.nama,
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w800,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              const Icon(Icons.check_circle, size: 14, color: Color(0xFF3F51B5)),
-                            ],
+                          Text(
+                            'Email Terdaftar',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.black87,
+                            ),
                           ),
-                          const SizedBox(height: 2),
-                          const Text(
-                            'Warga Terverifikasi GateLand',
+                          SizedBox(height: 2),
+                          Text(
+                            'Kode OTP 6-digit akan dikirim ke email Anda',
                             style: TextStyle(fontSize: 11, color: Colors.black54),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Estimasi 1 - 2 menit',
+                            style: TextStyle(fontSize: 10, color: Colors.black45),
                           ),
                         ],
                       ),
                     ),
+                    // Radio terpilih
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF1F3F9),
-                        borderRadius: BorderRadius.circular(8),
+                      width: 22,
+                      height: 22,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Color(0xFF09095E),
                       ),
-                      child: Text(
-                        profile.unit,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF555B6D),
-                        ),
+                      child: const Icon(
+                        Icons.check,
+                        size: 14,
+                        color: Colors.white,
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // 4. Section: Pilih Metode Pengiriman OTP
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: const [
-                  Text(
-                    'Pilih Metode Pengiriman OTP',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  Text(
-                    'Aman & Terenkripsi',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF3F51B5),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // Method 1: WhatsApp
-              GestureDetector(
-                onTap: () => setState(() => _selectedMethod = 'whatsapp'),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: _selectedMethod == 'whatsapp'
-                          ? const Color(0xFF3F51B5)
-                          : const Color(0xFFF1F1F7),
-                      width: _selectedMethod == 'whatsapp' ? 1.5 : 1,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.02),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(9),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEFF0FE),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Icon(Icons.chat_bubble_outline, color: _primaryColor, size: 20),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Text(
-                                  'WhatsApp',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF3F51B5),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: const Text(
-                                    'Rekomendasi',
-                                    style: TextStyle(
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              user.noWhatsapp,
-                              style: const TextStyle(fontSize: 11, color: Colors.black54),
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: const [
-                                Icon(Icons.bolt, size: 12, color: Color(0xFF3F51B5)),
-                                SizedBox(width: 2),
-                                Text(
-                                  'Pengiriman Instan (~5 detik)',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF3F51B5),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      _buildCustomRadio(_selectedMethod == 'whatsapp'),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // Method 2: Email Terdaftar
-              GestureDetector(
-                onTap: () => setState(() => _selectedMethod = 'email'),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: _selectedMethod == 'email'
-                          ? const Color(0xFF3F51B5)
-                          : const Color(0xFFF1F1F7),
-                      width: _selectedMethod == 'email' ? 1.5 : 1,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.02),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(9),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEFF0FE),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Icon(Icons.mail_outline, color: _primaryColor, size: 20),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: const [
-                            Text(
-                              'Email Terdaftar',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.black87,
-                              ),
-                            ),
-                            SizedBox(height: 2),
-                            Text(
-                              'a*********a@gmail.com',
-                              style: TextStyle(fontSize: 11, color: Colors.black54),
-                            ),
-                            SizedBox(height: 2),
-                            Text(
-                              'Estimasi 1 - 2 menit',
-                              style: TextStyle(fontSize: 10, color: Colors.black45),
-                            ),
-                          ],
-                        ),
-                      ),
-                      _buildCustomRadio(_selectedMethod == 'email'),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Method 3: Gunakan Kontak Lain yang Terdaftar
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFF1F1F7)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.02),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: const [
-                        Text(
-                          'Gunakan Kontak Lain yang Terdaftar',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        Icon(Icons.tune, size: 16, color: Colors.black54),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Masukkan nomor WhatsApp atau email alternatif yang sudah terverifikasi di kepengurusan RT GateLand.',
-                      style: TextStyle(fontSize: 11, color: Colors.black54, height: 1.3),
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      height: 46,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF3F3FA),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: TextField(
-                        controller: _otherContactController,
-                        style: const TextStyle(fontSize: 13, color: Colors.black87, fontWeight: FontWeight.w500),
-                        decoration: const InputDecoration(
-                          prefixIcon: Icon(Icons.alternate_email, size: 16, color: Colors.black54),
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: const [
-                        Icon(Icons.info_outline, size: 12, color: Colors.black45),
-                        SizedBox(width: 4),
-                        Text(
-                          'Pastikan perangkat aktif menerima notifikasi SMS/WA.',
-                          style: TextStyle(fontSize: 10, color: Colors.black45),
-                        ),
-                      ],
                     ),
                   ],
                 ),
@@ -473,7 +295,11 @@ class _LupaKataSandiScreenState extends State<LupaKataSandiScreen> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.shield_outlined, color: Color(0xFF3F51B5), size: 18),
+                    const Icon(
+                      Icons.shield_outlined,
+                      color: Color(0xFF3F51B5),
+                      size: 18,
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(
@@ -511,25 +337,40 @@ class _LupaKataSandiScreenState extends State<LupaKataSandiScreen> {
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _primaryColor,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     elevation: 0,
                   ),
-                  onPressed: _sendVerificationCode,
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Kirim Kode Verifikasi',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
+                  onPressed: _isLoading ? null : _sendVerificationCode,
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Kirim Kode Verifikasi',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            SizedBox(width: 8),
+                            Icon(
+                              Icons.arrow_forward,
+                              color: Colors.white,
+                              size: 16,
+                            ),
+                          ],
                         ),
-                      ),
-                      SizedBox(width: 8),
-                      Icon(Icons.arrow_forward, color: Colors.white, size: 16),
-                    ],
-                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -538,10 +379,14 @@ class _LupaKataSandiScreenState extends State<LupaKataSandiScreen> {
               Center(
                 child: GestureDetector(
                   onTap: () => Navigator.pop(context),
-                  child: Row(
+                  child: const Row(
                     mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      Icon(Icons.arrow_back, size: 14, color: Color(0xFF3F51B5)),
+                    children: [
+                      Icon(
+                        Icons.arrow_back,
+                        size: 14,
+                        color: Color(0xFF3F51B5),
+                      ),
                       SizedBox(width: 6),
                       Text(
                         'Kembali ke Halaman Sebelumnya',
@@ -561,27 +406,5 @@ class _LupaKataSandiScreenState extends State<LupaKataSandiScreen> {
         ),
       ),
     );
-  }
-
-  Widget _buildCustomRadio(bool selected) {
-    if (selected) {
-      return Container(
-        width: 22,
-        height: 22,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.black87, width: 6),
-        ),
-      );
-    } else {
-      return Container(
-        width: 20,
-        height: 20,
-        decoration: const BoxDecoration(
-          color: Color(0xFFE2E8F0),
-          shape: BoxShape.circle,
-        ),
-      );
-    }
   }
 }

@@ -140,7 +140,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Halo, Ibu $firstName!',
+                        'Halo, $firstName!',
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.w800,

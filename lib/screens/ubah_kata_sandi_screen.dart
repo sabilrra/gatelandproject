@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../data/dummy_data.dart';
+import '../services/api_service.dart';
 
 class UbahKataSandiScreen extends StatefulWidget {
   const UbahKataSandiScreen({super.key});
@@ -13,78 +13,98 @@ class _UbahKataSandiScreenState extends State<UbahKataSandiScreen> {
   final Color _bgColor = const Color(0xFFFBFBFF);
   final Color _inputFillColor = const Color(0xFFF3F3FA);
 
-  final TextEditingController _currentPassController =
-      TextEditingController(text: 'ResidentSecret2024!');
-  final TextEditingController _newPassController =
-      TextEditingController(text: 'GateLand2025#');
-  final TextEditingController _confirmPassController =
-      TextEditingController(text: 'GateLand2025#');
+  final TextEditingController _newPassController = TextEditingController();
+  final TextEditingController _confirmPassController = TextEditingController();
 
-  bool _obscureCurrent = true;
   bool _obscureNew = true;
   bool _obscureConfirm = true;
   bool _logoutOtherDevices = true;
+  bool _isLoading = false;
+  String? _errorMessage;
+
+  // Args dari VerifikasiOtpScreen
+  late String _email;
+  late String _otpCode;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final args =
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    _email = args?['email'] as String? ?? '';
+    _otpCode = args?['otpCode'] as String? ?? '';
+  }
 
   @override
   void dispose() {
-    _currentPassController.dispose();
     _newPassController.dispose();
     _confirmPassController.dispose();
     super.dispose();
   }
 
-  void _savePassword() {
+  Future<void> _savePassword() async {
     final newPass = _newPassController.text.trim();
     final confirmPass = _confirmPassController.text.trim();
 
     if (newPass.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Kata sandi baru tidak boleh kosong')),
-      );
+      setState(() => _errorMessage = 'Kata sandi baru tidak boleh kosong.');
       return;
     }
 
     if (newPass != confirmPass) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Konfirmasi kata sandi tidak cocok')),
-      );
+      setState(() => _errorMessage = 'Konfirmasi kata sandi tidak cocok.');
       return;
     }
 
-    // Update password in dummy data
-    final store = DummyDataStore();
-    if (store.currentUser != null) {
-      store.currentUser!.password = newPass;
-    }
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Row(
-          children: [
-            Icon(Icons.check_circle, color: Colors.white, size: 20),
-            SizedBox(width: 8),
-            Text('Kata sandi baru berhasil disimpan!'),
-          ],
+    try {
+      await ApiService().verifyOtp(
+        email: _email,
+        code: _otpCode,
+        newPassword: newPass,
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.white, size: 20),
+              SizedBox(width: 8),
+              Text('Kata sandi baru berhasil disimpan!'),
+            ],
+          ),
+          backgroundColor: const Color(0xFF1B8754),
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
-        backgroundColor: const Color(0xFF1B8754),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
+      );
 
-    Navigator.pop(context);
+      // Kembali ke halaman login setelah reset berhasil
+      Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      });
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final store = DummyDataStore();
-    final profile = store.profile;
-
     final hasMinLength = _newPassController.text.length >= 8;
     final hasUpperLower = _newPassController.text.contains(RegExp(r'[A-Z]')) &&
         _newPassController.text.contains(RegExp(r'[a-z]'));
     final hasNumber = _newPassController.text.contains(RegExp(r'[0-9]'));
-    final hasSpecial = _newPassController.text.contains(RegExp(r'[@#\$%^&*(),.?":{}|<>]'));
+    final hasSpecial =
+        _newPassController.text.contains(RegExp(r'[@#\$%^&*(),.?":{}|<>]'));
     final isMatch = _newPassController.text.isNotEmpty &&
         _newPassController.text == _confirmPassController.text;
 
@@ -96,37 +116,29 @@ class _UbahKataSandiScreenState extends State<UbahKataSandiScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. Top Bar (Back button & Avatar Thumbnail)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEEF0FA),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.arrow_back,
-                        color: Colors.black87,
-                        size: 20,
-                      ),
-                    ),
+              // 1. Top Bar (Back button only)
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEEF0FA),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  CircleAvatar(
-                    radius: 18,
-                    backgroundImage: AssetImage(profile.fotoUrl),
+                  child: const Icon(
+                    Icons.arrow_back,
+                    color: Colors.black87,
+                    size: 20,
                   ),
-                ],
+                ),
               ),
               const SizedBox(height: 20),
 
               // 2. Badge & Title
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
                   color: const Color(0xFFEFF0FE),
                   borderRadius: BorderRadius.circular(8),
@@ -150,7 +162,7 @@ class _UbahKataSandiScreenState extends State<UbahKataSandiScreen> {
               ),
               const SizedBox(height: 10),
               const Text(
-                'Perbarui Kata Sandi',
+                'Buat Kata Sandi Baru',
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.w800,
@@ -167,90 +179,35 @@ class _UbahKataSandiScreenState extends State<UbahKataSandiScreen> {
                   height: 1.4,
                 ),
               ),
-              const SizedBox(height: 16),
-
-              // 3. Info Terakhir Diperbarui Box
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF3F4FB),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: const [
-                    Icon(Icons.history, size: 16, color: Colors.black54),
-                    SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Terakhir diperbarui 2 bulan lalu (12 Jan 2025)',
-                        style: TextStyle(fontSize: 11, color: Colors.black54),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
               const SizedBox(height: 20),
 
-              // 4. Form Fields
-              // Kata Sandi Saat Ini
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: const [
-                  Text(
-                    'Kata Sandi Saat Ini',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.black87),
+              // Error message global
+              if (_errorMessage != null) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF0F0),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFFFCDD2)),
                   ),
-                  Text(
-                    '*Wajib',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFFE53935)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Container(
-                height: 48,
-                decoration: BoxDecoration(
-                  color: _inputFillColor,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: TextField(
-                  controller: _currentPassController,
-                  obscureText: _obscureCurrent,
-                  style: const TextStyle(fontSize: 13, color: Colors.black87, fontWeight: FontWeight.w500),
-                  decoration: InputDecoration(
-                    prefixIcon: const Icon(Icons.lock_outline, size: 18, color: Colors.black54),
-                    suffixIcon: GestureDetector(
-                      onTap: () => setState(() => _obscureCurrent = !_obscureCurrent),
-                      child: Icon(
-                        _obscureCurrent ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                        size: 18,
-                        color: Colors.black54,
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline,
+                          size: 16, color: Color(0xFFE53935)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _errorMessage!,
+                          style: const TextStyle(
+                              fontSize: 12, color: Color(0xFFE53935)),
+                        ),
                       ),
-                    ),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                    ],
                   ),
                 ),
-              ),
-              const SizedBox(height: 6),
-              Align(
-                alignment: Alignment.centerRight,
-                child: GestureDetector(
-                  onTap: () {
-                    Navigator.pushNamed(context, '/lupa-kata-sandi');
-                  },
-                  child: Text(
-                    'Lupa kata sandi saat ini?',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF3F51B5),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
+                const SizedBox(height: 16),
+              ],
 
               // Kata Sandi Baru
               Row(
@@ -258,11 +215,17 @@ class _UbahKataSandiScreenState extends State<UbahKataSandiScreen> {
                 children: const [
                   Text(
                     'Kata Sandi Baru',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.black87),
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black87),
                   ),
                   Text(
                     'Rekomendasi Aman',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF3F51B5)),
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF3F51B5)),
                   ),
                 ],
               ),
@@ -277,83 +240,31 @@ class _UbahKataSandiScreenState extends State<UbahKataSandiScreen> {
                   controller: _newPassController,
                   obscureText: _obscureNew,
                   onChanged: (val) => setState(() {}),
-                  style: const TextStyle(fontSize: 13, color: Colors.black87, fontWeight: FontWeight.w500),
+                  style: const TextStyle(
+                      fontSize: 13,
+                      color: Colors.black87,
+                      fontWeight: FontWeight.w500),
                   decoration: InputDecoration(
-                    prefixIcon: const Icon(Icons.key_outlined, size: 18, color: Colors.black54),
+                    prefixIcon: const Icon(Icons.key_outlined,
+                        size: 18, color: Colors.black54),
                     suffixIcon: GestureDetector(
-                      onTap: () => setState(() => _obscureNew = !_obscureNew),
+                      onTap: () =>
+                          setState(() => _obscureNew = !_obscureNew),
                       child: Icon(
-                        _obscureNew ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                        _obscureNew
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
                         size: 18,
                         color: Colors.black54,
                       ),
                     ),
                     border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 14),
                   ),
                 ),
               ),
               const SizedBox(height: 10),
-
-              // Tingkat Keamanan Bar
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: const [
-                  Text(
-                    'Tingkat Keamanan:',
-                    style: TextStyle(fontSize: 11, color: Colors.black54),
-                  ),
-                  Text(
-                    'Kuat (Level 3/4)',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF3F51B5)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF3F51B5),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Container(
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF3F51B5),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Container(
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF3F51B5),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Container(
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE2E2F0),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
 
               // Checklist Persyaratan Kata Sandi
               Container(
@@ -367,11 +278,15 @@ class _UbahKataSandiScreenState extends State<UbahKataSandiScreen> {
                   children: [
                     _buildChecklistItem('Minimal 8 karakter', hasMinLength),
                     const SizedBox(height: 6),
-                    _buildChecklistItem('Mengandung huruf besar (A-Z) & huruf kecil (a-z)', hasUpperLower),
+                    _buildChecklistItem(
+                        'Mengandung huruf besar (A-Z) & huruf kecil (a-z)',
+                        hasUpperLower),
                     const SizedBox(height: 6),
                     _buildChecklistItem('Mengandung angka (0–9)', hasNumber),
                     const SizedBox(height: 6),
-                    _buildChecklistItem('Mengandung karakter khusus (@, #, \$, %, dll)', hasSpecial),
+                    _buildChecklistItem(
+                        'Mengandung karakter khusus (@, #, \$, %, dll)',
+                        hasSpecial),
                   ],
                 ),
               ),
@@ -383,11 +298,15 @@ class _UbahKataSandiScreenState extends State<UbahKataSandiScreen> {
                 children: [
                   const Text(
                     'Konfirmasi Kata Sandi Baru',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.black87),
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black87),
                   ),
                   if (isMatch)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
                         color: const Color(0xFFEFF0FE),
                         borderRadius: BorderRadius.circular(8),
@@ -395,11 +314,15 @@ class _UbahKataSandiScreenState extends State<UbahKataSandiScreen> {
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.check, size: 10, color: Color(0xFF3F51B5)),
+                          Icon(Icons.check,
+                              size: 10, color: Color(0xFF3F51B5)),
                           SizedBox(width: 4),
                           Text(
                             'Kata sandi cocok',
-                            style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFF3F51B5)),
+                            style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF3F51B5)),
                           ),
                         ],
                       ),
@@ -417,19 +340,27 @@ class _UbahKataSandiScreenState extends State<UbahKataSandiScreen> {
                   controller: _confirmPassController,
                   obscureText: _obscureConfirm,
                   onChanged: (val) => setState(() {}),
-                  style: const TextStyle(fontSize: 13, color: Colors.black87, fontWeight: FontWeight.w500),
+                  style: const TextStyle(
+                      fontSize: 13,
+                      color: Colors.black87,
+                      fontWeight: FontWeight.w500),
                   decoration: InputDecoration(
-                    prefixIcon: const Icon(Icons.sync, size: 18, color: Colors.black54),
+                    prefixIcon: const Icon(Icons.sync,
+                        size: 18, color: Colors.black54),
                     suffixIcon: GestureDetector(
-                      onTap: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                      onTap: () =>
+                          setState(() => _obscureConfirm = !_obscureConfirm),
                       child: Icon(
-                        _obscureConfirm ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                        _obscureConfirm
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
                         size: 18,
                         color: Colors.black54,
                       ),
                     ),
                     border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 14),
                   ),
                 ),
               ),
@@ -459,13 +390,14 @@ class _UbahKataSandiScreenState extends State<UbahKataSandiScreen> {
                         color: const Color(0xFFEFF0FE),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Icon(Icons.devices_outlined, color: _primaryColor, size: 20),
+                      child: Icon(Icons.devices_outlined,
+                          color: _primaryColor, size: 20),
                     ),
                     const SizedBox(width: 12),
-                    Expanded(
+                    const Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
+                        children: [
                           Text(
                             'Keluar dari perangkat lain',
                             style: TextStyle(
@@ -489,8 +421,10 @@ class _UbahKataSandiScreenState extends State<UbahKataSandiScreen> {
                     Switch(
                       value: _logoutOtherDevices,
                       activeThumbColor: _primaryColor,
-                      activeTrackColor: _primaryColor.withValues(alpha: 0.4),
-                      onChanged: (val) => setState(() => _logoutOtherDevices = val),
+                      activeTrackColor:
+                          _primaryColor.withValues(alpha: 0.4),
+                      onChanged: (val) =>
+                          setState(() => _logoutOtherDevices = val),
                     ),
                   ],
                 ),
@@ -504,27 +438,39 @@ class _UbahKataSandiScreenState extends State<UbahKataSandiScreen> {
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _primaryColor,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                     elevation: 0,
                   ),
-                  onPressed: _savePassword,
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.save_outlined, color: Colors.white, size: 18),
-                      SizedBox(width: 8),
-                      Text(
-                        'Simpan Kata Sandi Baru',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
+                  onPressed: _isLoading ? null : _savePassword,
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.save_outlined,
+                                color: Colors.white, size: 18),
+                            SizedBox(width: 8),
+                            Text(
+                              'Simpan Kata Sandi Baru',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            SizedBox(width: 6),
+                            Icon(Icons.arrow_forward,
+                                color: Colors.white, size: 16),
+                          ],
                         ),
-                      ),
-                      SizedBox(width: 6),
-                      Icon(Icons.arrow_forward, color: Colors.white, size: 16),
-                    ],
-                  ),
                 ),
               ),
               const SizedBox(height: 12),
@@ -566,7 +512,8 @@ class _UbahKataSandiScreenState extends State<UbahKataSandiScreen> {
             style: TextStyle(
               fontSize: 11,
               color: isChecked ? Colors.black87 : Colors.black45,
-              fontWeight: isChecked ? FontWeight.w600 : FontWeight.normal,
+              fontWeight:
+                  isChecked ? FontWeight.w600 : FontWeight.normal,
             ),
           ),
         ),

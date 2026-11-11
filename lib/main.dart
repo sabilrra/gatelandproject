@@ -14,6 +14,7 @@ import 'screens/profile_screen.dart';
 import 'screens/edit_profil_screen.dart';
 import 'screens/ubah_kata_sandi_screen.dart';
 import 'screens/lupa_kata_sandi_screen.dart';
+import 'screens/verifikasi_otp_screen.dart';
 import 'services/api_service.dart';
 
 void main() async {
@@ -55,6 +56,7 @@ class MyApp extends StatelessWidget {
         '/edit-profil': (context) => const EditProfilScreen(),
         '/ubah-kata-sandi': (context) => const UbahKataSandiScreen(),
         '/lupa-kata-sandi': (context) => const LupaKataSandiScreen(),
+        '/verifikasi-otp': (context) => const VerifikasiOtpScreen(),
       },
     );
   }

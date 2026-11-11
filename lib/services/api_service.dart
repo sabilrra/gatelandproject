@@ -291,6 +291,52 @@ class ApiService {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // OTP — LUPA KATA SANDI
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// POST /api/otp/send — Kirim kode OTP ke email terdaftar
+  Future<Map<String, dynamic>> sendOtpEmail(String email) async {
+    final url = Uri.parse('$baseUrl/api/otp/send');
+    final response = await http.post(
+      url,
+      headers: _headers(withAuth: false),
+      body: jsonEncode({'email': email.trim().toLowerCase()}),
+    );
+
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return data;
+    } else {
+      throw Exception(data['message'] ?? 'Gagal mengirim kode OTP.');
+    }
+  }
+
+  /// POST /api/otp/verify — Verifikasi OTP dan reset kata sandi
+  Future<Map<String, dynamic>> verifyOtp({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async {
+    final url = Uri.parse('$baseUrl/api/otp/verify');
+    final response = await http.post(
+      url,
+      headers: _headers(withAuth: false),
+      body: jsonEncode({
+        'email': email.trim().toLowerCase(),
+        'code': code.trim(),
+        'newPassword': newPassword,
+      }),
+    );
+
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return data;
+    } else {
+      throw Exception(data['message'] ?? 'Gagal memverifikasi OTP.');
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // GITA AI ASSISTANT CHATBOT
   // ═══════════════════════════════════════════════════════════════════════════
 
