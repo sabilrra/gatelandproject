@@ -11,8 +11,8 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController _emailController = TextEditingController(text: 'sabila@gmail.com');
-  final TextEditingController _passwordController = TextEditingController(text: 'password123');
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _rememberMe = true;
 
@@ -51,17 +51,18 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final res = await ApiService().login(email, password);
       if (res['status'] == 'success') {
-        final userData = res['data']?['user'];
-        final userName = userData?['name'] ?? 'Sabila Aulia';
-        final userEmail = userData?['email'] ?? email;
-
-        DummyDataStore().currentUser = UserData(
-          nama: userName,
-          email: userEmail,
-          noWhatsapp: '0812-3456-7890',
-          alamat: 'Cluster Anggrek, Blok B2 No. 14',
-          password: password,
-        );
+        final userData = res['data']?['user'] as Map<String, dynamic>?;
+        if (userData != null) {
+          DummyDataStore().syncFromBackendUser(userData, password: password);
+        } else {
+          DummyDataStore().currentUser = UserData(
+            nama: 'Warga GateLand',
+            email: email,
+            noWhatsapp: '-',
+            alamat: 'Cluster GateLand',
+            password: password,
+          );
+        }
 
         setState(() {
           _hasLoginError = false;
@@ -239,7 +240,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 controller: _emailController,
                 style: GoogleFonts.plusJakartaSans(fontSize: 13, color: _textColor),
                 decoration: InputDecoration(
-                  hintText: 'contoh: nama@email.com',
+                  hintText: 'contoh: nama@gmail.com',
                   hintStyle: GoogleFonts.plusJakartaSans(color: _hintColor, fontSize: 13),
                   prefixIcon: Icon(Icons.email_outlined, color: _hintColor, size: 20),
                   filled: true,
@@ -506,8 +507,15 @@ class _LoginScreenState extends State<LoginScreen> {
                     style: GoogleFonts.plusJakartaSans(color: _subtextColor, fontSize: 13, fontWeight: FontWeight.w400),
                   ),
                   GestureDetector(
-                    onTap: () {
-                      Navigator.pushNamed(context, '/register');
+                    onTap: () async {
+                      final registeredEmail = await Navigator.pushNamed(context, '/register');
+                      if (registeredEmail is String && registeredEmail.isNotEmpty && mounted) {
+                        setState(() {
+                          _emailController.text = registeredEmail;
+                          _passwordController.clear();
+                          _hasLoginError = false;
+                        });
+                      }
                     },
                     child: Text(
                       'Daftar Di Sini',

@@ -39,23 +39,23 @@ class UserProfile {
   String fotoUrl;
 
   UserProfile({
-    this.nik = '3271 0454 0588 0004',
-    this.ttl = 'Bandung, 14 Mei 1988',
-    this.statusKependudukan = 'Warga Tetap',
-    this.jumlahKeluarga = '4 Jiwa (2 Dewasa, 2 Anak)',
-    this.kontakDarurat = '0812-9876-5432',
-    this.namaKontakDarurat = 'Budi Santoso (Suami)',
-    this.unit = 'Unit 1',
-    this.cluster = 'Cluster Anggrek, Blok B2 No. 14',
-    this.wilayahRW = 'RT 04 / RW 08, GateLand',
-    this.statusKepemilikan = 'Pemilik Rumah (SHM)',
-    this.dayaListrik = 'PLN 3.500 VA • PDAM Tirta',
-    this.kendaraan = '1 Mobil (B 1234 DT)',
-    this.kendaraanTambahan = '2 Sepeda Motor (Stiker Aktif)',
+    this.nik = '',
+    this.ttl = '',
+    this.statusKependudukan = '',
+    this.jumlahKeluarga = '',
+    this.kontakDarurat = '',
+    this.namaKontakDarurat = '',
+    this.unit = '',
+    this.cluster = '',
+    this.wilayahRW = '',
+    this.statusKepemilikan = '',
+    this.dayaListrik = '',
+    this.kendaraan = '',
+    this.kendaraanTambahan = '',
     this.notifikasiTagihan = true,
-    this.pengingatWA = true,
-    this.statusPenghuni = 'Pemilik Rumah',
-    this.fotoUrl = 'assets/profile_avatar.jpg',
+    this.pengingatWA = false,
+    this.statusPenghuni = '',
+    this.fotoUrl = '',
   });
 }
 
@@ -129,14 +129,52 @@ class DummyDataStore {
   // Menyimpan user yang sedang login (session sederhana)
   UserData? currentUser;
 
+  /// Sinkronkan session lokal dengan data user asli dari backend
+  void syncFromBackendUser(Map<String, dynamic> userData, {String? password}) {
+    final String name = (userData['name'] ?? 'Warga GateLand').toString();
+    final String email = (userData['email'] ?? '').toString();
+    final String rawWa = (userData['whatsapp'] ?? '').toString().trim();
+    final String formattedWa = rawWa.isEmpty
+        ? '-'
+        : (rawWa.startsWith('+') ? rawWa : '+$rawWa');
+    final String rawAddress = (userData['address'] ?? '').toString().trim();
+    final String address = rawAddress.isNotEmpty ? rawAddress : '';
+
+    currentUser = UserData(
+      nama: name,
+      email: email,
+      noWhatsapp: formattedWa,
+      alamat: address,
+      password: password ?? currentUser?.password ?? '',
+    );
+
+    String readField(String key) => (userData[key] ?? '').toString().trim();
+
+    profile.unit = rawAddress;
+    profile.cluster = rawAddress.isNotEmpty ? 'Cluster GateLand, $rawAddress' : '';
+    profile.nik = readField('nik');
+    profile.ttl = readField('birthPlaceDate');
+    profile.statusKependudukan = readField('residencyStatus');
+    profile.jumlahKeluarga = readField('familyCount');
+    profile.namaKontakDarurat = readField('emergencyContactName');
+    profile.kontakDarurat = readField('emergencyContactPhone');
+    profile.wilayahRW = readField('rwArea');
+    profile.statusPenghuni = readField('occupancyStatus');
+    profile.statusKepemilikan = readField('ownershipType');
+    profile.dayaListrik = readField('powerWater');
+    profile.kendaraan = readField('vehicles');
+    profile.kendaraanTambahan = '';
+    profile.fotoUrl = readField('photoUrl');
+  }
+
   UserData get activeUser {
     if (currentUser != null) return currentUser!;
     return UserData(
-      nama: 'Azizah Pratama',
-      email: 'azizah.putri@gateland.id',
-      noWhatsapp: '0812-3456-7890',
-      alamat: 'Cluster Anggrek, Blok B2 No. 14',
-      password: 'password123',
+      nama: 'Warga GateLand',
+      email: 'warga@gmail.com',
+      noWhatsapp: '-',
+      alamat: 'Cluster GateLand',
+      password: '',
     );
   }
 }

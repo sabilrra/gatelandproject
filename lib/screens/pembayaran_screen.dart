@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../data/dummy_data.dart';
 import '../services/api_service.dart';
 
 class PembayaranScreen extends StatefulWidget {
@@ -25,8 +26,100 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
   final ScrollController _scrollController = ScrollController();
   String? _selectedMethod; // null = Pilih metode, 'qris' = QRIS, 'transfer' = Transfer Manual
   String? _transactionId;
+  int? _billId;
+  int _amount = 0;
+  String _month = 'Periode Aktif';
+  String _unit = DummyDataStore().profile.unit;
+  int _billCount = 1;
+  bool _didLoadArgs = false;
+
+  String _formatRupiah(int amount) {
+    final s = amount.toString();
+    final buf = StringBuffer();
+    for (int i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) buf.write('.');
+      buf.write(s[i]);
+    }
+    return 'Rp ${buf.toString()}';
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_didLoadArgs) return;
+    _didLoadArgs = true;
+
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is Map<String, dynamic>) {
+      _billId = args['billId'] is int
+          ? args['billId'] as int
+          : int.tryParse(args['billId']?.toString() ?? '');
+      final rawAmt = args['amount'];
+      if (rawAmt is int) {
+        _amount = rawAmt;
+      } else if (rawAmt != null) {
+        _amount = int.tryParse(rawAmt.toString()) ?? 0;
+      }
+      if (args['month'] != null && args['month'].toString().trim().isNotEmpty) {
+        _month = args['month'].toString();
+      }
+      if (args['unit'] != null && args['unit'].toString().trim().isNotEmpty) {
+        _unit = args['unit'].toString();
+      }
+      if (args['count'] is int) {
+        _billCount = args['count'] as int;
+      }
+    }
+
+    if (_amount <= 0) {
+      _loadActiveBill();
+    }
+  }
+
+  Future<void> _loadActiveBill() async {
+    try {
+      final me = await ApiService().getMe();
+      if (me != null) {
+        DummyDataStore().syncFromBackendUser(me);
+      }
+      final bill = await ApiService().getMyBill();
+      if (bill != null && mounted) {
+        final String status = (bill['status'] ?? 'NONE').toString();
+        final int amt = bill['amount'] is int
+            ? bill['amount'] as int
+            : int.tryParse(bill['amount']?.toString() ?? '0') ?? 0;
+        final String resolvedUnit =
+            (bill['unit'] != null && bill['unit'].toString().trim().isNotEmpty && bill['unit'].toString().trim() != '-')
+                ? bill['unit'].toString().trim()
+                : DummyDataStore().profile.unit;
+        setState(() {
+          _billId = bill['id'] is int ? bill['id'] as int : int.tryParse(bill['id']?.toString() ?? '');
+          _amount = status == 'NONE' ? 0 : amt;
+          _month = (bill['month'] ?? 'Periode Aktif').toString();
+          _unit = resolvedUnit;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Map<String, dynamic> _paymentRouteArgs() => {
+        'billId': _billId,
+        'amount': _amount,
+        'month': _month,
+        'unit': _unit,
+        'count': _billCount,
+      };
 
   void _selectMethod(String? method) async {
+    if (method != null && _amount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Total tagihan saat ini Rp 0. Belum ada tagihan aktif.'),
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _selectedMethod = method;
     });
@@ -37,12 +130,13 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
         curve: Curves.easeOut,
       );
     }
-    if (method == 'qris' && _transactionId == null) {
+    if (method == 'qris' && _transactionId == null && _amount > 0) {
       try {
         final res = await ApiService().createQrisTransaction(
-          amount: 175000,
-          residentName: 'Sabila Aulia',
-          unit: 'Unit 1',
+          billId: _billId,
+          amount: _amount,
+          residentName: DummyDataStore().activeUser.nama,
+          unit: _unit,
         );
         if (mounted) {
           setState(() {
@@ -155,7 +249,7 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                 decoration: const BoxDecoration(color: _primary, shape: BoxShape.circle),
               ),
               const SizedBox(width: 6),
-              Text('Unit 1',
+              Text(_unit,
                   style: GoogleFonts.inter(
                       fontSize: 13, fontWeight: FontWeight.w700, color: _primary)),
             ],
@@ -206,12 +300,14 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: _redBg,
+                  color: _amount <= 0 ? _greenBg : _redBg,
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Text('BELUM BAYAR',
+                child: Text(_amount <= 0 ? 'TIDAK ADA TAGIHAN' : 'BELUM BAYAR',
                     style: GoogleFonts.inter(
-                        fontSize: 10, fontWeight: FontWeight.w800, color: _redText)),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        color: _amount <= 0 ? _greenText : _redText)),
               ),
             ],
           ),
@@ -220,11 +316,11 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
               'Iuran Kebersihan & Keamanan'),
           const SizedBox(height: 16),
           _buildDetailRow(Icons.home_outlined, 'Unit Hunian',
-              'RT 04 / RW 08 – Unit 1',
-              subValue: 'Blok A3 No. 12 (Ibu Azizah Pratama)'),
+              '${DummyDataStore().profile.wilayahRW} • $_unit',
+              subValue: DummyDataStore().activeUser.nama),
           const SizedBox(height: 16),
           _buildDetailRow(Icons.calendar_today_outlined, 'Periode Pembayaran',
-              'September 2026'),
+              _month),
           const SizedBox(height: 16),
           const Divider(color: Color(0xFFF0F4F8), height: 1, thickness: 1),
           const SizedBox(height: 16),
@@ -243,7 +339,7 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                       style: GoogleFonts.inter(
                           fontSize: 10, fontWeight: FontWeight.w700, color: Colors.black45, letterSpacing: 0.5)),
                   const SizedBox(height: 4),
-                  Text('Rp 175.000',
+                  Text(_formatRupiah(_amount),
                       style: GoogleFonts.inter(
                           fontSize: 18, fontWeight: FontWeight.w800, color: _primary)),
                 ],
@@ -714,7 +810,7 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                     Text('Nominal: ',
                         style: GoogleFonts.inter(
                             fontSize: 12, fontWeight: FontWeight.w500, color: Colors.black54)),
-                    Text('Rp 175.000',
+                    Text(_formatRupiah(_amount),
                         style: GoogleFonts.inter(
                             fontSize: 13, fontWeight: FontWeight.w700, color: _primary)),
                   ],
@@ -811,7 +907,7 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                 const SizedBox(height: 8),
                 _buildInstructionItem('Pilih menu Pindai / Scan QRIS, lalu arahkan kamera ke barcode di atas atau unggah screenshot gambar.'),
                 const SizedBox(height: 8),
-                _buildInstructionItem('Nominal tagihan terisi otomatis sebesar Rp 175.000 tanpa perlu input manual.'),
+                _buildInstructionItem('Nominal tagihan terisi otomatis sebesar ${_formatRupiah(_amount)} tanpa perlu input manual.'),
                 const SizedBox(height: 8),
                 _buildInstructionItem('Masukkan PIN Anda. Sistem GateLand akan memverifikasi pembayaran secara realtime tanpa upload bukti struk.'),
               ],
@@ -972,7 +1068,11 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () {
-                Navigator.pushNamed(context, '/konfirmasi_pembayaran');
+                Navigator.pushNamed(
+                  context,
+                  '/konfirmasi_pembayaran',
+                  arguments: _paymentRouteArgs(),
+                );
               },
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -1134,21 +1234,21 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                               style: GoogleFonts.inter(
                                   fontSize: 10, fontWeight: FontWeight.w500, color: Colors.black54)),
                           const SizedBox(height: 4),
-                          Text('Rp 175.000',
+                          Text(_formatRupiah(_amount),
                               style: GoogleFonts.inter(
                                   fontSize: 15, fontWeight: FontWeight.w800, color: _primary)),
                         ],
                       ),
                       OutlinedButton.icon(
                         onPressed: () {
-                          Clipboard.setData(const ClipboardData(text: '175000'));
+                          Clipboard.setData(ClipboardData(text: '$_amount'));
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: const Row(
+                              content: Row(
                                 children: [
-                                  Icon(Icons.copy, color: Colors.white, size: 18),
-                                  SizedBox(width: 8),
-                                  Text('Nominal Rp 175.000 disalin!'),
+                                  const Icon(Icons.copy, color: Colors.white, size: 18),
+                                  const SizedBox(width: 8),
+                                  Text('Nominal ${_formatRupiah(_amount)} disalin!'),
                                 ],
                               ),
                               backgroundColor: const Color(0xFF1B8754),
@@ -1195,7 +1295,7 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                       const SizedBox(height: 8),
                       _buildInstructionItem('Transfer ke rekening 1234-5678-9101-1121 a.n Kas Paguyuban Sekar Indah.'),
                       const SizedBox(height: 8),
-                      _buildInstructionItem('Masukkan nominal sesuai tagihan yaitu tepat Rp 175.000.'),
+                      _buildInstructionItem('Masukkan nominal sesuai tagihan yaitu tepat ${_formatRupiah(_amount)}.'),
                       const SizedBox(height: 8),
                       _buildInstructionItem('Simpan bukti transfer dan klik tombol di bawah untuk konfirmasi & unggah bukti.'),
                     ],
@@ -1227,7 +1327,17 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
           width: double.infinity,
           child: ElevatedButton.icon(
             onPressed: () {
-              Navigator.pushNamed(context, '/konfirmasi_pembayaran');
+              if (_amount <= 0) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Total tagihan saat ini Rp 0. Belum ada tagihan aktif.')),
+                );
+                return;
+              }
+              Navigator.pushNamed(
+                context,
+                '/konfirmasi_pembayaran',
+                arguments: _paymentRouteArgs(),
+              );
             },
             icon: const Icon(Icons.upload_file_outlined, size: 18, color: Colors.white),
             label: Text('Konfirmasi & Unggah Bukti',
@@ -1263,6 +1373,12 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
           width: double.infinity,
           child: ElevatedButton.icon(
             onPressed: () async {
+              if (_amount <= 0) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Total tagihan saat ini Rp 0. Belum ada tagihan aktif.')),
+                );
+                return;
+              }
               showDialog(
                 context: context,
                 barrierDismissible: false,
@@ -1272,13 +1388,43 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
               );
 
               // Konfirmasi / simulasi penyelesaian pembayaran ke backend
+              String? trxId = _transactionId;
               try {
-                await ApiService().simulatePayQris(_transactionId);
-              } catch (_) {}
-
-              if (mounted) {
-                Navigator.pop(context); // Tutup loading dialog
-                Navigator.pushNamed(context, '/kwitansi');
+                if (trxId == null) {
+                  final created = await ApiService().createQrisTransaction(
+                    billId: _billId,
+                    amount: _amount,
+                    residentName: DummyDataStore().activeUser.nama,
+                    unit: _unit,
+                  );
+                  trxId = created['transactionId'] as String?;
+                }
+                await ApiService().simulatePayQris(trxId);
+                if (mounted) {
+                  Navigator.pop(context); // Tutup loading dialog
+                  Navigator.pushNamed(
+                    context,
+                    '/kwitansi',
+                    arguments: {
+                      'transactionId': trxId,
+                      'amount': _amount,
+                      'month': _month,
+                      'unit': _unit,
+                      'method': 'QRIS',
+                      'isPaid': true,
+                    },
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  Navigator.pop(context); // Tutup loading dialog
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(e.toString().replaceAll('Exception: ', '')),
+                      backgroundColor: _redText,
+                    ),
+                  );
+                }
               }
             },
             icon: const Icon(Icons.check_circle_outline, size: 18, color: Colors.white),

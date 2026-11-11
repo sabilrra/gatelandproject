@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../data/dummy_data.dart';
 import '../services/api_service.dart';
+import '../widgets/profile_avatar.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -22,12 +23,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
+    final apiUser = ApiService().currentUser;
+    if (DummyDataStore().currentUser == null && apiUser != null) {
+      DummyDataStore().syncFromBackendUser(apiUser);
+    }
     _loadDashboardData();
   }
 
   Future<void> _loadDashboardData() async {
     setState(() => _isLoadingData = true);
     try {
+      final me = await ApiService().getMe();
+      if (me != null) {
+        DummyDataStore().syncFromBackendUser(me);
+      }
       final bill = await ApiService().getMyBill();
       final announcements = await ApiService().getAnnouncements();
       if (mounted) {
@@ -43,8 +52,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   String _formatCurrency(dynamic amount) {
-    if (amount == null) return 'Rp 175.000';
-    final int val = amount is int ? amount : int.tryParse(amount.toString()) ?? 175000;
+    if (amount == null) return 'Rp 0';
+    final int val = amount is int ? amount : int.tryParse(amount.toString()) ?? 0;
     final s = val.toString();
     final buf = StringBuffer();
     for (int i = 0; i < s.length; i++) {
@@ -116,10 +125,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 shape: BoxShape.circle,
                                 border: Border.all(color: _primaryColor.withValues(alpha: 0.3), width: 1.5),
                               ),
-                              child: const CircleAvatar(
+                              child: ProfileAvatar(
+                                photoUrl: DummyDataStore().profile.fotoUrl,
                                 radius: 18,
-                                backgroundColor: Color(0xFFFFD1D1),
-                                backgroundImage: AssetImage('assets/profile_avatar.jpg'),
                               ),
                             ),
                           ),
@@ -400,10 +408,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildBillingCard() {
-    final bool isPaid = _activeBill?['status'] == 'PAID';
-    final String billMonth = (_activeBill?['month'] ?? 'Agustus 2026').toString();
-    final String billDueDate = (_activeBill?['dueDate'] ?? '10 Agustus').toString();
-    final String billAmount = _formatCurrency(_activeBill?['amount']);
+    final String status = (_activeBill?['status'] ?? 'NONE').toString();
+    final bool isPaid = status == 'PAID';
+    final int rawAmount = _activeBill?['amount'] is int
+        ? _activeBill!['amount'] as int
+        : int.tryParse(_activeBill?['amount']?.toString() ?? '0') ?? 0;
+    final bool hasNoBill = _activeBill == null || status == 'NONE' || (!isPaid && rawAmount <= 0);
+    final String billMonth = (_activeBill?['month'] ?? 'Periode Aktif').toString();
+    final String billDueDate = (_activeBill?['dueDate'] ?? '-').toString();
+    final String billAmount = _formatCurrency(hasNoBill ? 0 : rawAmount);
+
+    final Color badgeBgColor = isPaid
+        ? const Color(0xFFE6F9F1)
+        : (hasNoBill ? const Color(0xFFEEF0FE) : const Color(0xFFFBE4E4));
+    final Color badgeTextColor = isPaid
+        ? const Color(0xFF1A7A4A)
+        : (hasNoBill ? const Color(0xFF3F51B5) : _primaryColor);
+    final IconData badgeIcon = isPaid
+        ? Icons.check_circle
+        : (hasNoBill ? Icons.check_circle_outline : Icons.schedule);
+    final String badgeText = isPaid
+        ? 'Lunas'
+        : (hasNoBill ? 'Tidak Ada Tagihan' : 'Jatuh Tempo: $billDueDate');
 
     return Container(
       width: double.infinity,
@@ -436,25 +462,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  billMonth,
+                  hasNoBill ? 'Periode Aktif' : billMonth,
                   style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
                 ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: isPaid ? const Color(0xFFE6F9F1) : const Color(0xFFFBE4E4),
+                  color: badgeBgColor,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
                   children: [
-                    Icon(isPaid ? Icons.check_circle : Icons.schedule, size: 12, color: isPaid ? const Color(0xFF1A7A4A) : _primaryColor),
+                    Icon(badgeIcon, size: 12, color: badgeTextColor),
                     const SizedBox(width: 4),
                     Text(
-                      isPaid ? 'Lunas' : 'Jatuh Tempo: $billDueDate',
+                      badgeText,
                       style: TextStyle(
-                        color: isPaid ? const Color(0xFF1A7A4A) : _primaryColor, 
-                        fontSize: 11, 
+                        color: badgeTextColor,
+                        fontSize: 11,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -470,7 +496,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            isPaid ? 'Terima kasih, tagihan Anda telah terverifikasi lunas.' : 'IPL, Kebersihan, Keamanan, & Kas RT',
+            isPaid
+                ? 'Terima kasih, tagihan Anda telah terverifikasi lunas.'
+                : (hasNoBill
+                    ? 'Belum ada tagihan iuran aktif untuk unit Anda.'
+                    : 'IPL, Kebersihan, Keamanan, & Kas RT'),
             style: const TextStyle(color: Colors.black54, fontSize: 12),
           ),
           const SizedBox(height: 12),
@@ -503,7 +533,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    isPaid ? 'Lihat Bukti Kwitansi' : 'Bayar Sekarang',
+                    isPaid
+                        ? 'Lihat Bukti Kwitansi'
+                        : (hasNoBill ? 'Lihat Rincian Tagihan' : 'Bayar Sekarang'),
                     style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
                   ),
                   const SizedBox(width: 8),

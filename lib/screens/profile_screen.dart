@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../data/dummy_data.dart';
+import '../services/api_service.dart';
+import '../widgets/profile_avatar.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -20,6 +22,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void initState() {
     super.initState();
     _notifikasiTagihan = DummyDataStore().profile.notifikasiTagihan;
+    _refreshProfile();
+  }
+
+  Future<void> _refreshProfile() async {
+    if (!ApiService().isLoggedIn) return;
+    final userData = await ApiService().getMe();
+    if (userData != null && mounted) {
+      setState(() {
+        DummyDataStore().syncFromBackendUser(userData);
+      });
+    }
   }
 
   void _confirmLogout() {
@@ -42,10 +55,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               backgroundColor: const Color(0xFFE53935),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(ctx);
+              await ApiService().logout();
               DummyDataStore().currentUser = null;
-              Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+              if (mounted) {
+                Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+              }
             },
             child: const Text('Keluar', style: TextStyle(color: Colors.white)),
           ),
@@ -102,7 +118,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      profile.unit,
+                      profile.unit.isEmpty ? '-' : profile.unit,
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
@@ -156,17 +172,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   ),
                                 ],
                               ),
-                              child: ClipOval(
-                                child: Image.asset(
-                                  profile.fotoUrl,
-                                  width: 68,
-                                  height: 68,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) => Container(
-                                    color: const Color(0xFFFFD1D1),
-                                    child: Icon(Icons.person, color: _primaryColor, size: 40),
-                                  ),
-                                ),
+                              child: ProfileAvatar(
+                                photoUrl: profile.fotoUrl,
+                                radius: 34,
+                                iconColor: _primaryColor,
                               ),
                             ),
                             Positioned(
@@ -332,58 +341,66 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          _isNikVisible ? profile.nik : '3271 •••• •••• 0004',
+                          profile.nik.isEmpty
+                              ? '-'
+                              : (_isNikVisible || profile.nik.length < 8
+                                  ? profile.nik
+                                  : '${profile.nik.substring(0, 4)} •••• •••• ${profile.nik.substring(profile.nik.length - 4)}'),
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
                             color: Colors.black87,
                           ),
                         ),
-                        const SizedBox(width: 6),
-                        GestureDetector(
-                          onTap: () => setState(() => _isNikVisible = !_isNikVisible),
-                          child: Icon(
-                            _isNikVisible ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                            size: 16,
-                            color: Colors.black54,
+                        if (profile.nik.isNotEmpty) ...[
+                          const SizedBox(width: 6),
+                          GestureDetector(
+                            onTap: () => setState(() => _isNikVisible = !_isNikVisible),
+                            child: Icon(
+                              _isNikVisible ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                              size: 16,
+                              color: Colors.black54,
+                            ),
                           ),
-                        ),
+                        ],
                       ],
                     ),
                   ),
                   _buildDivider(),
                   _buildDataRow(
                     label: 'Tempat, Tanggal Lahir',
-                    value: profile.ttl,
+                    value: profile.ttl.isEmpty ? '-' : profile.ttl,
                   ),
                   _buildDivider(),
                   _buildDataRow(
                     label: 'Status Kependudukan',
-                    customValue: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE8F8F0),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        '• ${profile.statusKependudukan}',
-                        style: const TextStyle(
-                          color: Color(0xFF1B8754),
-                          fontWeight: FontWeight.w700,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ),
+                    customValue: profile.statusKependudukan.isEmpty
+                        ? const Text('-', style: TextStyle(fontSize: 12, color: Colors.black54))
+                        : Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE8F8F0),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '• ${profile.statusKependudukan}',
+                              style: const TextStyle(
+                                color: Color(0xFF1B8754),
+                                fontWeight: FontWeight.w700,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ),
                   ),
                   _buildDivider(),
                   _buildDataRow(
                     label: 'Jumlah Anggota Keluarga',
-                    value: profile.jumlahKeluarga,
+                    value: profile.jumlahKeluarga.isEmpty ? '-' : profile.jumlahKeluarga,
                   ),
                   _buildDivider(),
                   _buildDataRow(
                     label: 'Kontak Darurat',
-                    value: profile.kontakDarurat,
+                    value: profile.kontakDarurat.isEmpty ? '-' : profile.kontakDarurat,
                   ),
                 ],
               ),
@@ -392,80 +409,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               // 4. Section: Data Hunian & Aset
               _buildSectionHeader(
                 title: 'Data Hunian & Aset',
-                actionText: 'Denah Rumah ›',
-                actionColor: _primaryColor,
-                onActionTap: () {
-                  showModalBottomSheet(
-                    context: context,
-                    shape: const RoundedRectangleBorder(
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                    ),
-                    builder: (ctx) => Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Denah Unit ${profile.unit}',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: _primaryColor,
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.close, size: 20),
-                                onPressed: () => Navigator.pop(ctx),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Container(
-                            height: 180,
-                            width: double.infinity,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF3F4FB),
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: const Color(0xFFE2E4F0)),
-                            ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.home_work_outlined, size: 48, color: _primaryColor),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Tipe 45 / 90 • 2 Kamar Tidur, 1 Garasi',
-                                  style: TextStyle(fontWeight: FontWeight.bold, color: _primaryColor, fontSize: 13),
-                                ),
-                                const SizedBox(height: 4),
-                                const Text(
-                                  'Kavling Edelweiss Blok B4 No. 12',
-                                  style: TextStyle(fontSize: 11, color: Colors.black54),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: _primaryColor,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              ),
-                              onPressed: () => Navigator.pop(ctx),
-                              child: const Text('Tutup', style: TextStyle(color: Colors.white)),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
               ),
               const SizedBox(height: 10),
               _buildCardContainer(
@@ -489,7 +432,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Text(
-                                profile.unit,
+                                profile.unit.isEmpty ? '-' : profile.unit,
                                 style: const TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w700,
@@ -501,7 +444,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          profile.cluster,
+                          profile.cluster.isEmpty ? '-' : profile.cluster,
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
@@ -514,57 +457,64 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _buildDivider(),
                   _buildDataRow(
                     label: 'Wilayah Rukun Warga',
-                    value: profile.wilayahRW,
+                    value: profile.wilayahRW.isEmpty ? '-' : profile.wilayahRW,
                     valueBold: true,
                   ),
                   _buildDivider(),
                   _buildDataRow(
                     label: 'Status Kepemilikan',
-                    customValue: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEEF2FF),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        profile.statusKepemilikan,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: _primaryColor,
-                        ),
-                      ),
-                    ),
+                    customValue: profile.statusKepemilikan.isEmpty
+                        ? const Text('-', style: TextStyle(fontSize: 12, color: Colors.black54))
+                        : Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEEF2FF),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              profile.statusKepemilikan,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: _primaryColor,
+                              ),
+                            ),
+                          ),
                   ),
                   _buildDivider(),
                   _buildDataRow(
                     label: 'Daya Listrik & Sanitasi Air',
-                    value: profile.dayaListrik,
+                    value: profile.dayaListrik.isEmpty ? '-' : profile.dayaListrik,
                   ),
                   _buildDivider(),
                   _buildDataRow(
                     label: 'Kendaraan Terdaftar',
-                    customValue: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          profile.kendaraan,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black87,
+                    customValue: (profile.kendaraan.isEmpty && profile.kendaraanTambahan.isEmpty)
+                        ? const Text('-', style: TextStyle(fontSize: 12, color: Colors.black54))
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              if (profile.kendaraan.isNotEmpty)
+                                Text(
+                                  profile.kendaraan,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              if (profile.kendaraanTambahan.isNotEmpty) ...[ 
+                                const SizedBox(height: 2),
+                                Text(
+                                  profile.kendaraanTambahan,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.black54,
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          profile.kendaraanTambahan,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Colors.black54,
-                          ),
-                        ),
-                      ],
-                    ),
                   ),
                 ],
               ),

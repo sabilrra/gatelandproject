@@ -4,6 +4,21 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+class ApiException implements Exception {
+  final String message;
+  final Map<String, String> fieldErrors;
+  final int statusCode;
+
+  ApiException(
+    this.message, {
+    this.fieldErrors = const {},
+    this.statusCode = 400,
+  });
+
+  @override
+  String toString() => message;
+}
+
 class ApiService {
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
@@ -54,6 +69,34 @@ class ApiService {
     return headers;
   }
 
+  ApiException _buildApiException(http.Response response, String fallbackMessage) {
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) {
+        final String msg = (decoded['message'] ?? fallbackMessage).toString();
+        final Map<String, String> fieldErrors = {};
+        final errorsList = decoded['errors'];
+        if (errorsList is List) {
+          for (final item in errorsList) {
+            if (item is Map<String, dynamic>) {
+              final field = (item['field'] ?? '').toString().trim();
+              final errMsg = (item['message'] ?? '').toString().trim();
+              if (field.isNotEmpty && errMsg.isNotEmpty) {
+                if (fieldErrors.containsKey(field)) {
+                  fieldErrors[field] = '${fieldErrors[field]}\n$errMsg';
+                } else {
+                  fieldErrors[field] = errMsg;
+                }
+              }
+            }
+          }
+        }
+        return ApiException(msg, fieldErrors: fieldErrors, statusCode: response.statusCode);
+      }
+    } catch (_) {}
+    return ApiException(fallbackMessage, statusCode: response.statusCode);
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // AUTHENTICATION
   // ═══════════════════════════════════════════════════════════════════════════
@@ -65,13 +108,13 @@ class ApiService {
       url,
       headers: _headers(withAuth: false),
       body: jsonEncode({
-        'email': email.trim(),
+        'email': email.trim().toLowerCase(),
         'password': password,
       }),
     );
 
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
     if (response.statusCode >= 200 && response.statusCode < 300) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
       final resData = data['data'] as Map<String, dynamic>;
       _token = resData['token'] as String?;
       _currentUser = resData['user'] as Map<String, dynamic>?;
@@ -84,7 +127,7 @@ class ApiService {
 
       return data;
     } else {
-      throw Exception(data['message'] ?? 'Login gagal.');
+      throw _buildApiException(response, 'Login gagal.');
     }
   }
 
@@ -94,17 +137,21 @@ class ApiService {
     required String email,
     required String password,
     String? whatsapp,
+    String? address,
     String role = 'USER',
   }) async {
     final url = Uri.parse('$baseUrl/api/auth/register');
     final Map<String, dynamic> body = {
       'name': name.trim(),
-      'email': email.trim(),
+      'email': email.trim().toLowerCase(),
       'password': password,
       'role': role,
     };
     if (whatsapp != null && whatsapp.trim().isNotEmpty) {
       body['whatsapp'] = whatsapp.trim();
+    }
+    if (address != null && address.trim().isNotEmpty) {
+      body['address'] = address.trim();
     }
 
     final response = await http.post(
@@ -113,8 +160,8 @@ class ApiService {
       body: jsonEncode(body),
     );
 
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
     if (response.statusCode >= 200 && response.statusCode < 300) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
       final resData = data['data'] as Map<String, dynamic>?;
       if (resData != null) {
         _token = resData['token'] as String?;
@@ -128,7 +175,30 @@ class ApiService {
       }
       return data;
     } else {
-      throw Exception(data['message'] ?? 'Registrasi gagal.');
+      throw _buildApiException(response, 'Registrasi gagal.');
+    }
+  }
+
+  /// PUT /api/auth/me — Update profil user yang sedang login
+  Future<Map<String, dynamic>> updateProfile(Map<String, dynamic> payload) async {
+    final url = Uri.parse('$baseUrl/api/auth/me');
+    final response = await http.put(
+      url,
+      headers: _headers(withAuth: true),
+      body: jsonEncode(payload),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final updatedUser = data['data'] as Map<String, dynamic>?;
+      if (updatedUser != null) {
+        _currentUser = updatedUser;
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_keyUser, jsonEncode(updatedUser));
+      }
+      return data;
+    } else {
+      throw _buildApiException(response, 'Gagal menyimpan perubahan profil.');
     }
   }
 
@@ -267,6 +337,7 @@ class ApiService {
 
   /// POST /api/payments/manual-transfer
   Future<Map<String, dynamic>> submitManualTransfer({
+    int? billId,
     required int amount,
     String? residentName,
     String? unit,
@@ -275,24 +346,28 @@ class ApiService {
     String? notes,
   }) async {
     final url = Uri.parse('$baseUrl/api/payments/manual-transfer');
+    final Map<String, dynamic> body = {
+      'amount': amount,
+      'residentName': residentName ?? _currentUser?['name'] ?? 'Warga',
+      'unit': unit ?? _currentUser?['address'] ?? '-',
+      'bankName': bankName,
+      'senderAccount': senderAccount,
+      'notes': notes,
+    };
+    if (billId != null) {
+      body['billId'] = billId;
+    }
     final response = await http.post(
       url,
       headers: _headers(withAuth: true),
-      body: jsonEncode({
-        'amount': amount,
-        'residentName': residentName ?? _currentUser?['name'] ?? 'Sabila Aulia',
-        'unit': unit ?? 'Unit 1',
-        'bankName': bankName,
-        'senderAccount': senderAccount,
-        'notes': notes,
-      }),
+      body: jsonEncode(body),
     );
 
     final data = jsonDecode(response.body) as Map<String, dynamic>;
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return data;
     } else {
-      throw Exception(data['message'] ?? 'Gagal mengirim konfirmasi transfer.');
+      throw _buildApiException(response, 'Gagal mengirim konfirmasi transfer.');
     }
   }
 
@@ -344,11 +419,11 @@ class ApiService {
       }),
     );
 
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
     if (response.statusCode >= 200 && response.statusCode < 300) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
       return data;
     } else {
-      throw Exception(data['message'] ?? 'Gagal memverifikasi OTP.');
+      throw _buildApiException(response, 'Gagal memverifikasi OTP.');
     }
   }
 
@@ -357,16 +432,22 @@ class ApiService {
   // ═══════════════════════════════════════════════════════════════════════════
 
   /// POST /api/gita/chat
-  Future<String> chatWithGita(String message) async {
+  Future<String> chatWithGita(
+    String message, {
+    List<Map<String, String>> history = const [],
+  }) async {
     final url = Uri.parse('$baseUrl/api/gita/chat');
-    final response = await http.post(
-      url,
-      headers: _headers(withAuth: false),
-      body: jsonEncode({
-        'message': message,
-        'userName': _currentUser?['name'] ?? 'Sabila',
-      }),
-    );
+    final response = await http
+        .post(
+          url,
+          headers: _headers(withAuth: true),
+          body: jsonEncode({
+            'message': message,
+            'userName': _currentUser?['name'] ?? 'Warga',
+            'history': history,
+          }),
+        )
+        .timeout(const Duration(seconds: 25));
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;

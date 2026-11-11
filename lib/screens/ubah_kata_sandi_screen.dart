@@ -42,17 +42,103 @@ class _UbahKataSandiScreenState extends State<UbahKataSandiScreen> {
     super.dispose();
   }
 
+  Future<void> _showErrorPopup(String title, String message) async {
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFEBEE),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.lock_outline, color: Color(0xFFD32F2F), size: 20),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFFB71C1C),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                message,
+                style: const TextStyle(fontSize: 12.5, color: Colors.black87, height: 1.45),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _primaryColor,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text(
+                    'Perbaiki Kata Sandi',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _savePassword() async {
-    final newPass = _newPassController.text.trim();
-    final confirmPass = _confirmPassController.text.trim();
+    final newPass = _newPassController.text;
+    final confirmPass = _confirmPassController.text;
 
     if (newPass.isEmpty) {
-      setState(() => _errorMessage = 'Kata sandi baru tidak boleh kosong.');
+      const msg = 'Kata sandi baru tidak boleh kosong.';
+      setState(() => _errorMessage = msg);
+      await _showErrorPopup('Kata Sandi Wajib Diisi', msg);
+      return;
+    }
+
+    final missingRules = <String>[];
+    if (newPass.length < 8) missingRules.add('minimal 8 karakter');
+    if (RegExp(r'\s').hasMatch(newPass)) missingRules.add('tidak boleh mengandung spasi');
+    if (!RegExp(r'[A-Z]').hasMatch(newPass)) missingRules.add('kombinasi huruf kapital (A–Z)');
+    if (!RegExp(r'[0-9]').hasMatch(newPass)) missingRules.add('kombinasi angka (0–9)');
+    if (!RegExp(r'[^A-Za-z0-9\s]').hasMatch(newPass)) {
+      missingRules.add('simbol seperti tanda seru (!) atau strip (-)');
+    }
+
+    if (missingRules.isNotEmpty) {
+      final msg = 'Kata sandi baru belum memenuhi ketentuan: ${missingRules.join(', ')}.';
+      setState(() => _errorMessage = msg);
+      await _showErrorPopup('Kata Sandi Belum Memenuhi Syarat', msg);
       return;
     }
 
     if (newPass != confirmPass) {
-      setState(() => _errorMessage = 'Konfirmasi kata sandi tidak cocok.');
+      const msg = 'Konfirmasi kata sandi baru tidak cocok.';
+      setState(() => _errorMessage = msg);
+      await _showErrorPopup('Konfirmasi Tidak Cocok', msg);
       return;
     }
 
@@ -89,9 +175,11 @@ class _UbahKataSandiScreenState extends State<UbahKataSandiScreen> {
       // Kembali ke halaman login setelah reset berhasil
       Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
     } catch (e) {
+      final msg = e.toString().replaceFirst('Exception: ', '');
       setState(() {
-        _errorMessage = e.toString().replaceFirst('Exception: ', '');
+        _errorMessage = msg;
       });
+      await _showErrorPopup('Gagal Mengubah Kata Sandi', msg);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -100,11 +188,10 @@ class _UbahKataSandiScreenState extends State<UbahKataSandiScreen> {
   @override
   Widget build(BuildContext context) {
     final hasMinLength = _newPassController.text.length >= 8;
-    final hasUpperLower = _newPassController.text.contains(RegExp(r'[A-Z]')) &&
-        _newPassController.text.contains(RegExp(r'[a-z]'));
+    final hasUppercase = _newPassController.text.contains(RegExp(r'[A-Z]'));
     final hasNumber = _newPassController.text.contains(RegExp(r'[0-9]'));
     final hasSpecial =
-        _newPassController.text.contains(RegExp(r'[@#\$%^&*(),.?":{}|<>]'));
+        _newPassController.text.contains(RegExp(r'[^A-Za-z0-9\s]'));
     final isMatch = _newPassController.text.isNotEmpty &&
         _newPassController.text == _confirmPassController.text;
 
@@ -239,7 +326,9 @@ class _UbahKataSandiScreenState extends State<UbahKataSandiScreen> {
                 child: TextField(
                   controller: _newPassController,
                   obscureText: _obscureNew,
-                  onChanged: (val) => setState(() {}),
+                  onChanged: (val) => setState(() {
+                    _errorMessage = null;
+                  }),
                   style: const TextStyle(
                       fontSize: 13,
                       color: Colors.black87,
@@ -279,13 +368,13 @@ class _UbahKataSandiScreenState extends State<UbahKataSandiScreen> {
                     _buildChecklistItem('Minimal 8 karakter', hasMinLength),
                     const SizedBox(height: 6),
                     _buildChecklistItem(
-                        'Mengandung huruf besar (A-Z) & huruf kecil (a-z)',
-                        hasUpperLower),
+                        'Kombinasi huruf kapital (A–Z)',
+                        hasUppercase),
                     const SizedBox(height: 6),
-                    _buildChecklistItem('Mengandung angka (0–9)', hasNumber),
+                    _buildChecklistItem('Kombinasi angka (0–9)', hasNumber),
                     const SizedBox(height: 6),
                     _buildChecklistItem(
-                        'Mengandung karakter khusus (@, #, \$, %, dll)',
+                        'Mengandung simbol seperti tanda seru (!) atau strip (-)',
                         hasSpecial),
                   ],
                 ),
@@ -339,7 +428,9 @@ class _UbahKataSandiScreenState extends State<UbahKataSandiScreen> {
                 child: TextField(
                   controller: _confirmPassController,
                   obscureText: _obscureConfirm,
-                  onChanged: (val) => setState(() {}),
+                  onChanged: (val) => setState(() {
+                    _errorMessage = null;
+                  }),
                   style: const TextStyle(
                       fontSize: 13,
                       color: Colors.black87,

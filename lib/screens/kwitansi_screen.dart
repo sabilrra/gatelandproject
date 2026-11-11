@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../data/dummy_data.dart';
 
 class KwitansiScreen extends StatefulWidget {
   const KwitansiScreen({super.key});
@@ -20,6 +21,118 @@ class _KwitansiScreenState extends State<KwitansiScreen> {
   static const Color _blueText = Color(0xFF1E3A8A);
 
   bool _showDetails = true;
+  String _transactionId = 'KWT/GATELAND/001';
+  int _amount = 0;
+  String _month = 'Periode Aktif';
+  String _unit = DummyDataStore().profile.unit;
+  String _residentName = DummyDataStore().activeUser.nama;
+  String _method = 'QRIS';
+  String _dateLabel = '';
+  bool _isPaid = true;
+  bool _didLoadArgs = false;
+
+  String _formatRupiah(int amount) {
+    final s = amount.toString();
+    final buf = StringBuffer();
+    for (int i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) buf.write('.');
+      buf.write(s[i]);
+    }
+    return 'Rp ${buf.toString()}';
+  }
+
+  String _terbilangCore(int n) {
+    const satuan = [
+      '',
+      'Satu',
+      'Dua',
+      'Tiga',
+      'Empat',
+      'Lima',
+      'Enam',
+      'Tujuh',
+      'Delapan',
+      'Sembilan',
+      'Sepuluh',
+      'Sebelas',
+    ];
+    if (n < 12) return satuan[n];
+    if (n < 20) return '${_terbilangCore(n - 10)} Belas';
+    if (n < 100) {
+      final rem = n % 10;
+      return '${_terbilangCore(n ~/ 10)} Puluh${rem > 0 ? ' ${_terbilangCore(rem)}' : ''}';
+    }
+    if (n < 200) {
+      final rem = n - 100;
+      return 'Seratus${rem > 0 ? ' ${_terbilangCore(rem)}' : ''}';
+    }
+    if (n < 1000) {
+      final rem = n % 100;
+      return '${_terbilangCore(n ~/ 100)} Ratus${rem > 0 ? ' ${_terbilangCore(rem)}' : ''}';
+    }
+    if (n < 2000) {
+      final rem = n - 1000;
+      return 'Seribu${rem > 0 ? ' ${_terbilangCore(rem)}' : ''}';
+    }
+    if (n < 1000000) {
+      final rem = n % 1000;
+      return '${_terbilangCore(n ~/ 1000)} Ribu${rem > 0 ? ' ${_terbilangCore(rem)}' : ''}';
+    }
+    final rem = n % 1000000;
+    return '${_terbilangCore(n ~/ 1000000)} Juta${rem > 0 ? ' ${_terbilangCore(rem)}' : ''}';
+  }
+
+  String _terbilangRupiah(int amount) {
+    if (amount <= 0) return 'Nol Rupiah';
+    return '${_terbilangCore(amount).trim()} Rupiah';
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_didLoadArgs) return;
+    _didLoadArgs = true;
+
+    _residentName = DummyDataStore().activeUser.nama;
+    _unit = DummyDataStore().profile.unit;
+
+    final now = DateTime.now();
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    final hh = now.hour.toString().padLeft(2, '0');
+    final mm = now.minute.toString().padLeft(2, '0');
+    _dateLabel = '${now.day} ${months[now.month - 1]} ${now.year}, $hh:$mm';
+
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is Map<String, dynamic>) {
+      if (args['transactionId'] != null && args['transactionId'].toString().trim().isNotEmpty) {
+        _transactionId = args['transactionId'].toString();
+      }
+      final rawAmt = args['amount'];
+      if (rawAmt is int) {
+        _amount = rawAmt;
+      } else if (rawAmt != null) {
+        _amount = int.tryParse(rawAmt.toString()) ?? 0;
+      }
+      if (args['month'] != null && args['month'].toString().trim().isNotEmpty) {
+        _month = args['month'].toString();
+      }
+      if (args['unit'] != null && args['unit'].toString().trim().isNotEmpty && args['unit'].toString().trim() != '-') {
+        _unit = args['unit'].toString();
+      }
+      if (args['residentName'] != null && args['residentName'].toString().trim().isNotEmpty) {
+        _residentName = args['residentName'].toString();
+      }
+      if (args['method'] != null && args['method'].toString().trim().isNotEmpty) {
+        _method = args['method'].toString();
+      }
+      if (args['date'] != null && args['date'].toString().trim().isNotEmpty) {
+        _dateLabel = args['date'].toString();
+      }
+      if (args['isPaid'] is bool) {
+        _isPaid = args['isPaid'] as bool;
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -94,18 +207,18 @@ class _KwitansiScreenState extends State<KwitansiScreen> {
                   Container(
                     width: 6,
                     height: 6,
-                    decoration: const BoxDecoration(
-                      color: _greenText,
+                    decoration: BoxDecoration(
+                      color: _isPaid ? _greenText : const Color(0xFFB86E00),
                       shape: BoxShape.circle,
                     ),
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    'Resmi & Terverifikasi',
+                    _isPaid ? 'Resmi & Terverifikasi' : 'Menunggu Verifikasi',
                     style: GoogleFonts.inter(
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
-                      color: _greenText,
+                      color: _isPaid ? _greenText : const Color(0xFFB86E00),
                     ),
                   ),
                 ],
@@ -222,7 +335,7 @@ class _KwitansiScreenState extends State<KwitansiScreen> {
                   ),
                 ),
                 Text(
-                  'RT 04 / RW 08 • Unit 1',
+                  '${DummyDataStore().profile.wilayahRW} • $_unit',
                   style: GoogleFonts.inter(
                     fontSize: 10,
                     fontWeight: FontWeight.w500,
@@ -247,7 +360,7 @@ class _KwitansiScreenState extends State<KwitansiScreen> {
             ),
             const SizedBox(height: 2),
             Text(
-              'KWT/26/08/0094',
+              _transactionId,
               style: GoogleFonts.inter(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
@@ -256,7 +369,7 @@ class _KwitansiScreenState extends State<KwitansiScreen> {
             ),
             const SizedBox(height: 4),
             Text(
-              '28 Agu 2026, 14:30',
+              _dateLabel,
               style: GoogleFonts.inter(
                 fontSize: 10,
                 fontWeight: FontWeight.w500,
@@ -270,12 +383,17 @@ class _KwitansiScreenState extends State<KwitansiScreen> {
   }
 
   Widget _buildVerificationBanner() {
+    final Color accentColor = _isPaid ? _greenText : const Color(0xFFB86E00);
+    final Color bgColor = _isPaid ? _greenBg : const Color(0xFFFFF8EB);
+    final Color borderColor = _isPaid ? const Color(0xFFBBF7D0) : const Color(0xFFFDE68A);
+    final Color subColor = _isPaid ? const Color(0xFF166534) : const Color(0xFF92400E);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: _greenBg,
+        color: bgColor,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFBBF7D0)),
+        border: Border.all(color: borderColor),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -284,51 +402,56 @@ class _KwitansiScreenState extends State<KwitansiScreen> {
             children: [
               Container(
                 padding: const EdgeInsets.all(4),
-                decoration: const BoxDecoration(
-                  color: _greenText,
+                decoration: BoxDecoration(
+                  color: accentColor,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.check, color: Colors.white, size: 14),
+                child: Icon(
+                  _isPaid ? Icons.check : Icons.schedule,
+                  color: Colors.white,
+                  size: 14,
+                ),
               ),
               const SizedBox(width: 12),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'PEMBAYARAN TERVERIFIKASI',
+                    _isPaid ? 'PEMBAYARAN TERVERIFIKASI' : 'MENUNGGU VERIFIKASI ADMIN',
                     style: GoogleFonts.inter(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
-                      color: _greenText,
+                      color: accentColor,
                     ),
                   ),
                   Text(
-                    'Tercatat di Buku Kas Paguyuban',
+                    _isPaid
+                        ? 'Tercatat di Buku Kas Paguyuban'
+                        : 'Sedang diperiksa oleh Pengurus RT',
                     style: GoogleFonts.inter(
                       fontSize: 10,
                       fontWeight: FontWeight.w500,
-                      color: const Color(0xFF166534),
+                      color: subColor,
                     ),
                   ),
                 ],
               ),
             ],
           ),
-          // Fake stamp graphic
           Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: _greenText.withValues(alpha: 0.5), width: 1, style: BorderStyle.solid), // Should be dashed realistically but solid is fine for MVP
+              border: Border.all(color: accentColor.withValues(alpha: 0.5), width: 1),
             ),
             child: Transform.rotate(
               angle: -0.2,
               child: Text(
-                'LUNAS',
+                _isPaid ? 'LUNAS' : 'PENDING',
                 style: GoogleFonts.inter(
                   fontSize: 10,
                   fontWeight: FontWeight.w800,
-                  color: _greenText.withValues(alpha: 0.6),
+                  color: accentColor.withValues(alpha: 0.7),
                 ),
               ),
             ),
@@ -341,9 +464,9 @@ class _KwitansiScreenState extends State<KwitansiScreen> {
   Widget _buildDetailTable() {
     return Column(
       children: [
-        _buildTableRow('Diterima Dari', 'Ibu. Azizah Pratama', isBold: true),
+        _buildTableRow('Diterima Dari', _residentName, isBold: true),
         const SizedBox(height: 12),
-        _buildTableRow('Alamat / Unit', 'Unit 1 (RT 04/RW 08)', isBlue: true, isBold: true),
+        _buildTableRow('Alamat / Unit', '$_unit (${DummyDataStore().profile.wilayahRW})', isBlue: true, isBold: true),
         const SizedBox(height: 12),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -365,7 +488,7 @@ class _KwitansiScreenState extends State<KwitansiScreen> {
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    'QRIS',
+                    _method,
                     style: GoogleFonts.inter(
                       fontSize: 9,
                       fontWeight: FontWeight.w700,
@@ -375,7 +498,7 @@ class _KwitansiScreenState extends State<KwitansiScreen> {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  'Ref: QRN-8829104712',
+                  'Ref: $_transactionId',
                   style: GoogleFonts.inter(
                     fontSize: 11,
                     fontWeight: FontWeight.w500,
@@ -468,7 +591,7 @@ class _KwitansiScreenState extends State<KwitansiScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'RINCIAN POS IURAN (SEP 2026)',
+              'RINCIAN POS IURAN (${_month.toUpperCase()})',
               style: GoogleFonts.inter(
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
@@ -488,13 +611,20 @@ class _KwitansiScreenState extends State<KwitansiScreen> {
           ],
         ),
         const SizedBox(height: 16),
-        _buildRincianItem('Iuran Kebersihan & Sampah', 'Pengangkutan rutin 3x seminggu', 'Rp 100.000'),
-        const SizedBox(height: 12),
-        _buildRincianItem('Iuran Keamanan & Satpam 24 Jam', 'Portal cluster & ronda malam', 'Rp 50.000'),
-        const SizedBox(height: 12),
-        _buildRincianItem('Kas RT & Sosial Warga', 'Santunan, peringatan hari besar', 'Rp 25.000'),
-        const SizedBox(height: 12),
-        _buildRincianItem('Iuran Perbaikan Jalan & Paving', 'Renovasi blok B tahap 2', 'Rp 75.000', isKhusus: true),
+        if (_amount > 0)
+          _buildRincianItem(
+            _month,
+            'Iuran Warga Cluster GateLand ($_unit)',
+            _formatRupiah(_amount),
+          )
+        else
+          Text(
+            'Belum ada rincian iuran pada transaksi ini.',
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              color: _greyText,
+            ),
+          ),
       ],
     );
   }
@@ -580,7 +710,7 @@ class _KwitansiScreenState extends State<KwitansiScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'TOTAL DITERIMA',
+                  _isPaid ? 'TOTAL DITERIMA' : 'TOTAL NOMINAL TRANSAKSI',
                   style: GoogleFonts.inter(
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
@@ -590,7 +720,7 @@ class _KwitansiScreenState extends State<KwitansiScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '"Dua Ratus Lima Puluh Ribu Rupiah"',
+                  '"${_terbilangRupiah(_amount)}"',
                   style: GoogleFonts.inter(
                     fontSize: 11,
                     fontStyle: FontStyle.italic,
@@ -602,7 +732,7 @@ class _KwitansiScreenState extends State<KwitansiScreen> {
             ),
           ),
           Text(
-            'Rp 250.000',
+            _formatRupiah(_amount),
             style: GoogleFonts.inter(
               fontSize: 20,
               fontWeight: FontWeight.w800,

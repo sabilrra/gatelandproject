@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../data/dummy_data.dart';
 import '../services/api_service.dart';
+import '../widgets/profile_avatar.dart';
 
 class NotifikasiScreen extends StatefulWidget {
   const NotifikasiScreen({super.key});
@@ -27,28 +29,76 @@ class _NotifikasiScreenState extends State<NotifikasiScreen> {
   static const Color _badgePurpleBg = Color(0xFFEEF2FF);
   
   String _selectedFilter = 'Semua';
-  List<dynamic> _announcements = [];
+  List<Map<String, dynamic>> _notifications = [];
   bool _isLoading = false;
 
   final List<String> _filters = [
     'Semua',
     'Pengumuman',
-    'Kegiatan Warga',
   ];
 
   @override
   void initState() {
     super.initState();
-    _loadAnnouncements();
+    _loadNotifications();
   }
 
-  Future<void> _loadAnnouncements() async {
+  String _formatRupiah(int amount) {
+    final s = amount.toString();
+    final buffer = StringBuffer();
+    for (int i = 0; i < s.length; i++) {
+      final reverseIdx = s.length - i;
+      buffer.write(s[i]);
+      if (reverseIdx > 1 && reverseIdx % 3 == 1) {
+        buffer.write('.');
+      }
+    }
+    return 'Rp ${buffer.toString()}';
+  }
+
+  Future<void> _loadNotifications() async {
     setState(() => _isLoading = true);
     try {
-      final list = await ApiService().getAnnouncements();
+      final results = await Future.wait([
+        ApiService().getAnnouncements(),
+        ApiService().getMyBill().catchError((_) => null),
+      ]);
+
+      final annList = (results[0] as List<dynamic>? ?? []);
+      final billData = results[1] as Map<String, dynamic>?;
+      final billsList = (billData?['bills'] as List<dynamic>?) ?? [];
+
+      final combined = <Map<String, dynamic>>[];
+
+      for (final b in billsList) {
+        if (b is Map<String, dynamic>) {
+          combined.add({
+            ...b,
+            '_notifType': 'bill',
+            '_sortDate': b['createdAt']?.toString() ?? '',
+          });
+        }
+      }
+
+      for (final a in annList) {
+        if (a is Map<String, dynamic>) {
+          combined.add({
+            ...a,
+            '_notifType': 'announcement',
+            '_sortDate': a['createdAt']?.toString() ?? '',
+          });
+        }
+      }
+
+      combined.sort((a, b) {
+        final da = DateTime.tryParse(a['_sortDate']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final db = DateTime.tryParse(b['_sortDate']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return db.compareTo(da);
+      });
+
       if (mounted) {
         setState(() {
-          _announcements = list;
+          _notifications = combined;
           _isLoading = false;
         });
       }
@@ -57,8 +107,16 @@ class _NotifikasiScreenState extends State<NotifikasiScreen> {
     }
   }
 
+  List<Map<String, dynamic>> get _filteredNotifications {
+    if (_selectedFilter == 'Pengumuman') {
+      return _notifications.where((item) => item['_notifType'] == 'announcement').toList();
+    }
+    return _notifications;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final visibleNotifications = _filteredNotifications;
     return Scaffold(
       backgroundColor: _bgColor,
       body: SafeArea(
@@ -71,32 +129,45 @@ class _NotifikasiScreenState extends State<NotifikasiScreen> {
             _buildFilterChips(),
             const SizedBox(height: 20),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (_isLoading) ...[
-                      const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(32.0),
-                          child: CircularProgressIndicator(),
+              child: RefreshIndicator(
+                onRefresh: _loadNotifications,
+                color: _primary,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (_isLoading) ...[
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(32.0),
+                            child: CircularProgressIndicator(),
+                          ),
                         ),
-                      ),
-                    ] else if (_announcements.isEmpty) ...[
-                      _buildEmptyStateCard(),
-                    ] else ...[
-                      _buildSectionHeader('PENGUMUMAN RESMI PENGELOLA', 'Terbaru'),
-                      const SizedBox(height: 12),
-                      for (final item in _announcements) ...[
-                        _buildDynamicAnnouncementCard(item),
+                      ] else if (visibleNotifications.isEmpty) ...[
+                        _buildEmptyStateCard(),
+                      ] else ...[
+                        _buildSectionHeader(
+                          _selectedFilter == 'Pengumuman'
+                              ? 'PENGUMUMAN RESMI PENGELOLA'
+                              : 'NOTIFIKASI & PENGUMUMAN TERBARU',
+                          'Terbaru',
+                        ),
                         const SizedBox(height: 12),
+                        for (final item in visibleNotifications) ...[
+                          if (item['_notifType'] == 'bill')
+                            _buildDynamicBillNotificationCard(item)
+                          else
+                            _buildDynamicAnnouncementCard(item),
+                          const SizedBox(height: 12),
+                        ],
                       ],
+                      const SizedBox(height: 32),
+                      _buildFooterInfo(),
+                      const SizedBox(height: 32),
                     ],
-                    const SizedBox(height: 32),
-                    _buildFooterInfo(),
-                    const SizedBox(height: 32),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -145,10 +216,9 @@ class _NotifikasiScreenState extends State<NotifikasiScreen> {
                 shape: BoxShape.circle,
                 border: Border.all(color: _primary.withValues(alpha: 0.3), width: 1.5),
               ),
-              child: const CircleAvatar(
+              child: ProfileAvatar(
+                photoUrl: DummyDataStore().profile.fotoUrl,
                 radius: 16,
-                backgroundColor: Color(0xFFFFD1D1),
-                backgroundImage: AssetImage('assets/profile_avatar.jpg'),
               ),
             ),
           ),
@@ -171,22 +241,24 @@ class _NotifikasiScreenState extends State<NotifikasiScreen> {
               letterSpacing: -0.5,
             ),
           ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFECEC),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              '2 Baru',
-              style: GoogleFonts.inter(
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFFE53935),
+          if (_notifications.isNotEmpty) ...[
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFECEC),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '${_notifications.length} Baru',
+                style: GoogleFonts.inter(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFFE53935),
+                ),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -339,9 +411,7 @@ class _NotifikasiScreenState extends State<NotifikasiScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: OutlinedButton(
-                  onPressed: () {
-                    setState(() {});
-                  },
+                  onPressed: _loadNotifications,
                   style: OutlinedButton.styleFrom(
                     backgroundColor: Colors.white,
                     side: const BorderSide(color: Color(0xFFE2E8F0)),
@@ -445,6 +515,36 @@ class _NotifikasiScreenState extends State<NotifikasiScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildDynamicBillNotificationCard(Map<String, dynamic> bill) {
+    final title = (bill['month'] ?? 'Iuran Klaster').toString();
+    final desc = (bill['description'] ?? '').toString().trim();
+    final rawAmount = bill['amount'];
+    final amount = rawAmount is int ? rawAmount : int.tryParse(rawAmount?.toString() ?? '0') ?? 0;
+    final dueDate = (bill['dueDate'] ?? '-').toString();
+    final isPaid = bill['status'] == 'PAID';
+    final date = bill['createdAt'] != null ? bill['createdAt'].toString().substring(0, 10) : 'Hari ini';
+
+    final contentText = desc.isNotEmpty
+        ? '$desc\nNominal: ${_formatRupiah(amount)} • Jatuh tempo: $dueDate'
+        : 'Tagihan iuran sebesar ${_formatRupiah(amount)} telah diterbitkan oleh Pengelola. Jatuh tempo: $dueDate.';
+
+    return _buildNotificationCard(
+      isUnread: !isPaid,
+      iconData: Icons.receipt_long_outlined,
+      iconColor: isPaid ? const Color(0xFF1B8754) : _badgePinkText,
+      iconBg: isPaid ? const Color(0xFFE8F8F0) : _badgePinkBg,
+      tagText: isPaid ? 'IURAN LUNAS' : 'IURAN BARU',
+      tagBg: isPaid ? const Color(0xFFE8F8F0) : _badgePinkBg,
+      tagTextColor: isPaid ? const Color(0xFF1B8754) : _badgePinkText,
+      timeText: date,
+      title: 'Tagihan Iuran: $title',
+      content: contentText,
+      actionText: isPaid ? 'Lihat Riwayat Tagihan' : 'Cek & Bayar Tagihan',
+      actionIcon: Icons.keyboard_arrow_right,
+      onActionTap: () => Navigator.pushNamed(context, '/tagihan'),
     );
   }
 

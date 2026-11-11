@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../data/dummy_data.dart';
 import '../services/api_service.dart';
 
 // ── Model ────────────────────────────────────────────────────────────────────
@@ -60,39 +61,118 @@ class _TagihanScreenState extends State<TagihanScreen> {
   final Set<String> _selected = {};
   List<TagihanItem> _tagihanItems = [];
   bool _isLoading = false;
+  String _unitLabel = DummyDataStore().profile.unit;
+  String _dueDateLabel = '-';
+  String _periodLabel = 'Periode Aktif';
+  String _lastPaidLabel = '-';
 
   @override
   void initState() {
     super.initState();
+    final apiUser = ApiService().currentUser;
+    if (DummyDataStore().currentUser == null && apiUser != null) {
+      DummyDataStore().syncFromBackendUser(apiUser);
+      _unitLabel = DummyDataStore().profile.unit;
+    }
     _loadTagihan();
   }
 
   Future<void> _loadTagihan() async {
     setState(() => _isLoading = true);
     try {
+      final me = await ApiService().getMe();
+      if (me != null) {
+        DummyDataStore().syncFromBackendUser(me);
+      }
       final bill = await ApiService().getMyBill();
-      if (bill != null) {
-        final isPaid = bill['status'] == 'PAID';
-        final amount = bill['amount'] is int ? bill['amount'] as int : int.tryParse(bill['amount'].toString()) ?? 175000;
-        final month = (bill['month'] ?? 'Iuran Keamanan & Kebersihan').toString();
-        final dueDate = (bill['dueDate'] ?? '10 Agustus 2026').toString();
-        final unit = (bill['unit'] ?? 'Unit 1').toString();
+      final String fallbackUnit = DummyDataStore().profile.unit;
 
-        final item = TagihanItem(
-          id: (bill['id'] ?? '1').toString(),
-          nama: month,
-          deskripsi: 'Unit $unit • Jatuh Tempo: $dueDate',
-          jumlah: amount,
-          status: isPaid ? TagihanStatus.lunas : TagihanStatus.menunggu,
-          tipe: TagihanTipe.wajib,
-          icon: isPaid ? Icons.check_circle_outline : Icons.shield_outlined,
-        );
+      if (bill != null) {
+        final String status = (bill['status'] ?? 'NONE').toString();
+        final String resolvedUnit =
+            (bill['unit'] != null &&
+                    bill['unit'].toString().trim().isNotEmpty &&
+                    bill['unit'].toString().trim() != '-')
+                ? bill['unit'].toString().trim()
+                : fallbackUnit;
+        final String dueDate = (bill['dueDate'] ?? '-').toString();
+        final String period = (bill['month'] ?? 'Periode Aktif').toString();
+        final rawBills = bill['bills'];
+
+        final List<TagihanItem> loadedItems = [];
+        final Set<String> initialSelected = {};
+        String lastPaid = '-';
+
+        if (rawBills is List && rawBills.isNotEmpty) {
+          for (final raw in rawBills) {
+            if (raw is! Map) continue;
+            final map = Map<String, dynamic>.from(raw);
+            final bool isPaid = map['status'] == 'PAID';
+            final int amount = map['amount'] is int
+                ? map['amount'] as int
+                : int.tryParse(map['amount']?.toString() ?? '0') ?? 0;
+            final String id = (map['id'] ?? loadedItems.length + 1).toString();
+            final String month = (map['month'] ?? 'Iuran Bulanan').toString();
+            final String itemDue = (map['dueDate'] ?? dueDate).toString();
+            final String itemUnit =
+                (map['unit'] != null && map['unit'].toString().trim().isNotEmpty && map['unit'].toString().trim() != '-')
+                    ? map['unit'].toString().trim()
+                    : resolvedUnit;
+
+            if (isPaid && lastPaid == '-') {
+              lastPaid = month;
+            }
+
+            loadedItems.add(
+              TagihanItem(
+                id: id,
+                nama: month,
+                deskripsi: '$itemUnit • Jatuh Tempo: $itemDue',
+                jumlah: amount,
+                status: isPaid ? TagihanStatus.lunas : TagihanStatus.menunggu,
+                tipe: TagihanTipe.wajib,
+                icon: isPaid ? Icons.check_circle_outline : Icons.shield_outlined,
+              ),
+            );
+            if (!isPaid && amount > 0) {
+              initialSelected.add(id);
+            }
+          }
+        } else if (status == 'UNPAID' || status == 'PAID') {
+          final bool isPaid = status == 'PAID';
+          final int amount = bill['amount'] is int
+              ? bill['amount'] as int
+              : int.tryParse(bill['amount']?.toString() ?? '0') ?? 0;
+          if (amount > 0 || isPaid) {
+            final String id = (bill['id'] ?? '1').toString();
+            if (isPaid) lastPaid = period;
+            loadedItems.add(
+              TagihanItem(
+                id: id,
+                nama: period,
+                deskripsi: '$resolvedUnit • Jatuh Tempo: $dueDate',
+                jumlah: amount,
+                status: isPaid ? TagihanStatus.lunas : TagihanStatus.menunggu,
+                tipe: TagihanTipe.wajib,
+                icon: isPaid ? Icons.check_circle_outline : Icons.shield_outlined,
+              ),
+            );
+            if (!isPaid && amount > 0) {
+              initialSelected.add(id);
+            }
+          }
+        }
 
         if (mounted) {
           setState(() {
-            _tagihanItems = [item];
-            _selected.clear();
-            if (!isPaid) _selected.add(item.id);
+            _unitLabel = resolvedUnit;
+            _dueDateLabel = dueDate;
+            _periodLabel = period;
+            _lastPaidLabel = lastPaid;
+            _tagihanItems = loadedItems;
+            _selected
+              ..clear()
+              ..addAll(initialSelected);
             _isLoading = false;
           });
         }
@@ -102,7 +182,12 @@ class _TagihanScreenState extends State<TagihanScreen> {
 
     if (mounted) {
       setState(() {
+        _unitLabel = DummyDataStore().profile.unit;
+        _dueDateLabel = '-';
+        _periodLabel = 'Periode Aktif';
+        _lastPaidLabel = '-';
         _tagihanItems = [];
+        _selected.clear();
         _isLoading = false;
       });
     }
@@ -122,14 +207,27 @@ class _TagihanScreenState extends State<TagihanScreen> {
   List<TagihanItem> get _pending =>
       _tagihanItems.where((t) => t.status == TagihanStatus.menunggu).toList();
 
+  List<TagihanItem> get _paidItems =>
+      _tagihanItems.where((t) => t.status == TagihanStatus.lunas).toList();
+
   int get _totalSelected => _filtered
       .where((t) => _selected.contains(t.id) && t.status == TagihanStatus.menunggu)
       .fold(0, (sum, t) => sum + t.jumlah);
 
   int get _totalLunas =>
-      _tagihanItems.where((t) => t.status == TagihanStatus.lunas).fold(0, (s, t) => s + t.jumlah);
+      _paidItems.fold(0, (s, t) => s + t.jumlah);
 
   bool get _allPendingSelected => _pending.isNotEmpty && _pending.every((t) => _selected.contains(t.id));
+
+  Widget? _buildBottomSheet() {
+    if (_tabIndex == 2) {
+      return _totalLunas > 0 ? _buildLunasBottomBar() : null;
+    }
+    if (_pending.isEmpty || _tagihanItems.isEmpty) {
+      return null;
+    }
+    return _buildPaymentBottomBar();
+  }
 
   void _toggleSelectAll(bool? v) {
     setState(() {
@@ -147,7 +245,8 @@ class _TagihanScreenState extends State<TagihanScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final showEmptyAllPaid = _tabIndex == 1 && _pending.isEmpty;
+    final bool hasNoBillsAtAll = !_isLoading && _tagihanItems.isEmpty;
+    final bool showEmptyAllPaid = !_isLoading && _tagihanItems.isNotEmpty && _tabIndex == 1 && _pending.isEmpty;
 
     return Scaffold(
       backgroundColor: _bgColor,
@@ -155,40 +254,48 @@ class _TagihanScreenState extends State<TagihanScreen> {
         child: Column(
           children: [
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildTopBar(),
-                    const SizedBox(height: 20),
-                    _buildTitle(),
-                    const SizedBox(height: 20),
-                    _buildTabBar(),
-                    const SizedBox(height: 24),
-                    if (showEmptyAllPaid) ...[
-                      _buildListHeader(),
+              child: RefreshIndicator(
+                onRefresh: _loadTagihan,
+                color: _primary,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildTopBar(),
                       const SizedBox(height: 20),
-                      _buildAllPaidCard(),
-                      const SizedBox(height: 40),
-                    ] else ...[
-                      _buildSummaryCard(),
+                      _buildTitle(),
+                      const SizedBox(height: 20),
+                      _buildTabBar(),
                       const SizedBox(height: 24),
-                      _buildListHeader(),
-                      const SizedBox(height: 14),
-                      ..._buildItemList(),
-                      const SizedBox(height: 110),
+                      if (hasNoBillsAtAll) ...[
+                        _buildSummaryCard(),
+                        const SizedBox(height: 24),
+                        _buildNoBillsCard(),
+                        const SizedBox(height: 40),
+                      ] else if (showEmptyAllPaid) ...[
+                        _buildListHeader(),
+                        const SizedBox(height: 20),
+                        _buildAllPaidCard(),
+                        const SizedBox(height: 40),
+                      ] else ...[
+                        _buildSummaryCard(),
+                        const SizedBox(height: 24),
+                        _buildListHeader(),
+                        const SizedBox(height: 14),
+                        ..._buildItemList(),
+                        const SizedBox(height: 110),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
             ),
           ],
         ),
       ),
-      bottomSheet: showEmptyAllPaid
-          ? null
-          : (_tabIndex == 2 ? _buildLunasBottomBar() : _buildPaymentBottomBar()),
+      bottomSheet: _buildBottomSheet(),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -234,6 +341,67 @@ class _TagihanScreenState extends State<TagihanScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildNoBillsCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE8E8F5), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 15,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 76,
+            height: 76,
+            decoration: const BoxDecoration(
+              color: Color(0xFFF3F3FF),
+              shape: BoxShape.circle,
+            ),
+            child: const Center(
+              child: Icon(Icons.receipt_long_outlined, color: _primary, size: 38),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            'Belum Ada Tagihan Aktif',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+              color: _primary,
+            ),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _loadTagihan,
+              icon: const Icon(Icons.refresh, size: 16, color: _primary),
+              label: Text(
+                'Muat Ulang',
+                style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: _primary),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Color(0xFFE2E8F0)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -293,13 +461,13 @@ class _TagihanScreenState extends State<TagihanScreen> {
                 color: Colors.black54,
                 height: 1.5,
               ),
-              children: const [
-                TextSpan(text: 'Hebat! Seluruh iuran warga periode\n'),
+              children: [
+                const TextSpan(text: 'Hebat! Seluruh iuran warga periode\n'),
                 TextSpan(
-                  text: 'Agustus 2026',
-                  style: TextStyle(fontWeight: FontWeight.bold, color: _primary),
+                  text: _periodLabel,
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: _primary),
                 ),
-                TextSpan(
+                const TextSpan(
                   text: ' dan bulan sebelumnya\ntelah terselesaikan dengan baik. Terima\nkasih atas partisipasi aktif Anda dalam\nmenjaga kenyamanan klaster GateLand!',
                 ),
               ],
@@ -369,9 +537,7 @@ class _TagihanScreenState extends State<TagihanScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: OutlinedButton(
-                  onPressed: () {
-                    setState(() {});
-                  },
+                  onPressed: _loadTagihan,
                   style: OutlinedButton.styleFrom(
                     backgroundColor: Colors.white,
                     side: const BorderSide(color: Color(0xFFE2E8F0)),
@@ -444,7 +610,7 @@ class _TagihanScreenState extends State<TagihanScreen> {
                 decoration: const BoxDecoration(color: _primary, shape: BoxShape.circle),
               ),
               const SizedBox(width: 6),
-              Text('Unit 1',
+              Text(_unitLabel,
                   style: GoogleFonts.inter(
                       fontSize: 13, fontWeight: FontWeight.w700, color: _primary)),
             ],
@@ -484,7 +650,7 @@ class _TagihanScreenState extends State<TagihanScreen> {
       child: Row(
         children: [
           _buildTabItem(0, 'Semua', null),
-          _buildTabItem(1, 'Menunggu', '0'),
+          _buildTabItem(1, 'Menunggu', '${_pending.length}'),
           _buildTabItem(2, 'Sudah Lunas', null),
         ],
       ),
@@ -640,7 +806,9 @@ class _TagihanScreenState extends State<TagihanScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            isLunas ? 'Terakhir: 28 Agu 2026' : 'Jatuh Tempo: 10 Okt',
+            isLunas
+                ? 'Terakhir: $_lastPaidLabel'
+                : 'Jatuh Tempo: ${_pending.isEmpty ? '-' : _dueDateLabel}',
             style: GoogleFonts.inter(fontSize: 12, color: Colors.black45),
           ),
           const SizedBox(height: 14),
@@ -652,7 +820,9 @@ class _TagihanScreenState extends State<TagihanScreen> {
                     const Icon(Icons.check_circle_rounded, size: 17, color: _greenDot),
                     const SizedBox(width: 8),
                     Text(
-                      '4 Iuran Periode Berjalan Lunas',
+                      _paidItems.isEmpty
+                          ? 'Belum ada iuran berstatus lunas'
+                          : '${_paidItems.length} Iuran Periode Terbayar',
                       style: GoogleFonts.inter(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
@@ -718,7 +888,7 @@ class _TagihanScreenState extends State<TagihanScreen> {
         Text('Daftar Rincian Iuran',
             style: GoogleFonts.inter(
                 fontSize: 16, fontWeight: FontWeight.w800, color: _primary)),
-        Text('Periode Agt 2026',
+        Text(_periodLabel,
             style: GoogleFonts.inter(fontSize: 12, color: Colors.black45)),
       ],
     );
@@ -731,6 +901,22 @@ class _TagihanScreenState extends State<TagihanScreen> {
           child: Padding(
             padding: EdgeInsets.all(32.0),
             child: CircularProgressIndicator(),
+          ),
+        ),
+      ];
+    }
+    if (_filtered.isEmpty) {
+      return [
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 16),
+            child: Text(
+              _tabIndex == 2
+                  ? 'Belum ada iuran yang sudah lunas.'
+                  : 'Belum ada iuran pada kategori ini.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(fontSize: 13, color: Colors.black54),
+            ),
           ),
         ),
       ];
@@ -861,7 +1047,17 @@ class _TagihanScreenState extends State<TagihanScreen> {
                     const SizedBox(height: 8),
                     GestureDetector(
                       onTap: () {
-                        Navigator.pushNamed(context, '/kwitansi');
+                        Navigator.pushNamed(
+                          context,
+                          '/kwitansi',
+                          arguments: {
+                            'transactionId': 'BILL-${item.id}',
+                            'amount': item.jumlah,
+                            'month': item.nama,
+                            'unit': _unitLabel,
+                            'isPaid': true,
+                          },
+                        );
                       },
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -961,8 +1157,31 @@ class _TagihanScreenState extends State<TagihanScreen> {
             ),
           ),
           GestureDetector(
-            onTap: () {
-              Navigator.pushNamed(context, '/pembayaran');
+            onTap: () async {
+              final selectedItems = _filtered
+                  .where((t) => _selected.contains(t.id) && t.status == TagihanStatus.menunggu)
+                  .toList();
+              if (selectedItems.isEmpty || _totalSelected <= 0) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Pilih minimal satu tagihan untuk dibayar.'),
+                  ),
+                );
+                return;
+              }
+              final primaryItem = selectedItems.first;
+              await Navigator.pushNamed(
+                context,
+                '/pembayaran',
+                arguments: {
+                  'billId': int.tryParse(primaryItem.id),
+                  'amount': _totalSelected,
+                  'month': primaryItem.nama,
+                  'unit': _unitLabel,
+                  'count': selectedItems.length,
+                },
+              );
+              _loadTagihan();
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -1033,7 +1252,16 @@ class _TagihanScreenState extends State<TagihanScreen> {
           ),
           GestureDetector(
             onTap: () {
-              Navigator.pushNamed(context, '/kwitansi');
+              Navigator.pushNamed(
+                context,
+                '/kwitansi',
+                arguments: {
+                  'amount': _totalLunas,
+                  'month': _periodLabel,
+                  'unit': _unitLabel,
+                  'isPaid': true,
+                },
+              );
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),

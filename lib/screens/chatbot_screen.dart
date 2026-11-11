@@ -21,50 +21,28 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   final Color _bgColor = const Color(0xFFF9FAFF);
 
   late List<Map<String, dynamic>> _messages;
+  late String _sessionTimeLabel;
+  bool _isTyping = false;
 
   @override
   void initState() {
     super.initState();
     final user = DummyDataStore().currentUser;
     final firstName = (user != null && user.nama.isNotEmpty) ? user.nama.split(' ').first : 'Warga';
+    final now = TimeOfDay.now();
+    final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+    _sessionTimeLabel = 'Hari ini, $timeStr WIB';
 
     _messages = [
       {
         'isUser': false,
-        'text': 'Halo $firstName! 👋 Ada yang bisa Gita bantu hari ini terkait iuran, fasilitas perumahan, atau jadwal kegiatan warga?',
-        'time': '10:40',
-      },
-      {
-        'isUser': true,
-        'text': 'Apakah tagihan IPL bulan Agustus saya sudah terverifikasi?',
-        'time': '10:41',
-      },
-      {
-        'isUser': false,
-        'text': 'Tagihan IPL Agustus 2026 sebesar **Rp 175.000** sudah tercatat dan siap dibayarkan sebelum jatuh tempo **10 Agustus**. Ibu bisa langsung klik tombol Bayar di Beranda ya! 😊',
-        'time': '10:42',
+        'text': 'Halo **$firstName**! 👋 Saya **Gita**, asisten virtual GateLand. Ada yang bisa Gita bantu hari ini seputar tagihan iuran, pengumuman pengurus, jadwal kebersihan, atau layanan warga?',
+        'time': timeStr,
       },
     ];
   }
 
-  void _sendMessage() async {
-    final text = _controller.text.trim();
-    if (text.isEmpty) return;
-
-    final now = TimeOfDay.now();
-    final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
-
-    setState(() {
-      _messages.add({
-        'isUser': true,
-        'text': text,
-        'time': timeStr,
-      });
-    });
-    
-    _controller.clear();
-    
-    // Scroll to bottom
+  void _scrollToBottom() {
     Future.delayed(const Duration(milliseconds: 100), () {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
@@ -74,37 +52,62 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         );
       }
     });
+  }
+
+  void _sendMessage() async {
+    if (_isTyping) return;
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+
+    final now = TimeOfDay.now();
+    final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+
+    // Siapkan riwayat sebelum pesan baru ditambahkan
+    final historyPayload = _messages
+        .map((m) => {
+              'role': m['isUser'] == true ? 'user' : 'model',
+              'text': (m['text'] ?? '').toString(),
+            })
+        .toList();
+
+    setState(() {
+      _messages.add({
+        'isUser': true,
+        'text': text,
+        'time': timeStr,
+      });
+      _isTyping = true;
+    });
+
+    _controller.clear();
+    _scrollToBottom();
 
     try {
-      final reply = await ApiService().chatWithGita(text);
+      final reply = await ApiService().chatWithGita(text, history: historyPayload);
+      final replyNow = TimeOfDay.now();
+      final replyTime = '${replyNow.hour.toString().padLeft(2, '0')}:${replyNow.minute.toString().padLeft(2, '0')}';
       if (mounted) {
         setState(() {
+          _isTyping = false;
           _messages.add({
             'isUser': false,
             'text': reply,
-            'time': timeStr,
+            'time': replyTime,
           });
         });
-
-        Future.delayed(const Duration(milliseconds: 100), () {
-          if (_scrollController.hasClients) {
-            _scrollController.animateTo(
-              _scrollController.position.maxScrollExtent,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOut,
-            );
-          }
-        });
+        _scrollToBottom();
       }
     } catch (_) {
       if (mounted) {
         setState(() {
+          _isTyping = false;
           _messages.add({
             'isUser': false,
             'text': 'Gita sedang offline sejenak. Pastikan server backend GateLand aktif ya! 😊',
             'time': timeStr,
           });
         });
+        _scrollToBottom();
       }
     }
   }
@@ -198,7 +201,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             child: ListView.builder(
               controller: _scrollController,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-              itemCount: _messages.length + 1,
+              itemCount: _messages.length + 1 + (_isTyping ? 1 : 0),
               itemBuilder: (context, index) {
                 if (index == 0) {
                   return Center(
@@ -209,12 +212,15 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                         color: const Color(0xFFEFEFF5),
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      child: const Text(
-                        'Hari ini, 10:42 WIB',
-                        style: TextStyle(fontSize: 11, color: Colors.black54, fontWeight: FontWeight.w500),
+                      child: Text(
+                        _sessionTimeLabel,
+                        style: const TextStyle(fontSize: 11, color: Colors.black54, fontWeight: FontWeight.w500),
                       ),
                     ),
                   );
+                }
+                if (_isTyping && index == _messages.length + 1) {
+                  return _buildTypingBubble();
                 }
                 final msg = _messages[index - 1];
                 return _buildChatBubble(msg['text'], msg['time'], msg['isUser']);
@@ -375,10 +381,55 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     );
   }
 
+  Widget _buildTypingBubble() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: const BoxDecoration(
+              color: Color(0xFFEBEBFF),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.support_agent, color: _primaryColor, size: 18),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: _botBubbleColor,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: _botBorderColor, width: 1.5),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: _primaryColor),
+                ),
+                const SizedBox(width: 10),
+                const Text(
+                  'Gita sedang mengetik...',
+                  style: TextStyle(fontSize: 13, color: Color(0xFF2B2B3B), fontStyle: FontStyle.italic),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSuggestionChip(String text) {
     return GestureDetector(
       onTap: () {
-        _controller.text = text.substring(3); // Remove emoji
+        if (_isTyping) return;
+        _controller.text = text.replaceFirst(RegExp(r'^[^\w\s]+\s*'), '');
         _sendMessage();
       },
       child: Container(

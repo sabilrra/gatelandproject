@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../data/dummy_data.dart';
 import '../services/api_service.dart';
 
 class KonfirmasiPembayaranScreen extends StatefulWidget {
@@ -18,6 +19,89 @@ class _KonfirmasiPembayaranScreenState extends State<KonfirmasiPembayaranScreen>
   static const Color _greyText = Color(0xFF6B7280);
 
   int _currentIndex = 1;
+  int? _billId;
+  int _amount = 0;
+  String _month = 'Periode Aktif';
+  String _unit = DummyDataStore().profile.unit;
+  int _billCount = 1;
+  bool _didLoadArgs = false;
+
+  String _formatRupiah(int amount) {
+    final s = amount.toString();
+    final buf = StringBuffer();
+    for (int i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) buf.write('.');
+      buf.write(s[i]);
+    }
+    return 'Rp ${buf.toString()}';
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_didLoadArgs) return;
+    _didLoadArgs = true;
+
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is Map<String, dynamic>) {
+      _billId = args['billId'] is int
+          ? args['billId'] as int
+          : int.tryParse(args['billId']?.toString() ?? '');
+      final rawAmt = args['amount'];
+      if (rawAmt is int) {
+        _amount = rawAmt;
+      } else if (rawAmt != null) {
+        _amount = int.tryParse(rawAmt.toString()) ?? 0;
+      }
+      if (args['month'] != null && args['month'].toString().trim().isNotEmpty) {
+        _month = args['month'].toString();
+      }
+      if (args['unit'] != null && args['unit'].toString().trim().isNotEmpty) {
+        _unit = args['unit'].toString();
+      }
+      if (args['count'] is int) {
+        _billCount = args['count'] as int;
+      }
+    }
+
+    if (_amount <= 0) {
+      _loadActiveBill();
+    }
+  }
+
+  Future<void> _loadActiveBill() async {
+    try {
+      final me = await ApiService().getMe();
+      if (me != null) {
+        DummyDataStore().syncFromBackendUser(me);
+      }
+      final bill = await ApiService().getMyBill();
+      if (bill != null && mounted) {
+        final String status = (bill['status'] ?? 'NONE').toString();
+        final int amt = bill['amount'] is int
+            ? bill['amount'] as int
+            : int.tryParse(bill['amount']?.toString() ?? '0') ?? 0;
+        final String resolvedUnit =
+            (bill['unit'] != null && bill['unit'].toString().trim().isNotEmpty && bill['unit'].toString().trim() != '-')
+                ? bill['unit'].toString().trim()
+                : DummyDataStore().profile.unit;
+        setState(() {
+          _billId = bill['id'] is int ? bill['id'] as int : int.tryParse(bill['id']?.toString() ?? '');
+          _amount = status == 'NONE' ? 0 : amt;
+          _month = (bill['month'] ?? 'Periode Aktif').toString();
+          _unit = resolvedUnit;
+        });
+      }
+    } catch (_) {}
+  }
+
+  String _currentWibDateLabel() {
+    final now = DateTime.now();
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    final hh = now.hour.toString().padLeft(2, '0');
+    final mm = now.minute.toString().padLeft(2, '0');
+    return '${now.day} ${months[now.month - 1]} ${now.year}, $hh:$mm WIB';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -127,7 +211,7 @@ class _KonfirmasiPembayaranScreenState extends State<KonfirmasiPembayaranScreen>
               ),
               const SizedBox(width: 8),
               Text(
-                'Unit 1',
+                _unit,
                 style: GoogleFonts.inter(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
@@ -178,7 +262,7 @@ class _KonfirmasiPembayaranScreenState extends State<KonfirmasiPembayaranScreen>
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  '3 Tagihan',
+                  '$_billCount Tagihan',
                   style: GoogleFonts.inter(
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
@@ -190,7 +274,7 @@ class _KonfirmasiPembayaranScreenState extends State<KonfirmasiPembayaranScreen>
           ),
           const SizedBox(height: 8),
           Text(
-            'Rp 175.000',
+            _formatRupiah(_amount),
             style: GoogleFonts.inter(
               fontSize: 24,
               fontWeight: FontWeight.w800,
@@ -210,7 +294,7 @@ class _KonfirmasiPembayaranScreenState extends State<KonfirmasiPembayaranScreen>
                 ),
               ),
               Text(
-                'September 2026',
+                _month,
                 style: GoogleFonts.inter(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
@@ -252,15 +336,15 @@ class _KonfirmasiPembayaranScreenState extends State<KonfirmasiPembayaranScreen>
             ),
           ),
           const SizedBox(height: 20),
-          _buildFormField('Nama Lengkap Pengirim', 'Azizah Pratama', Icons.person_outline),
+          _buildFormField('Nama Lengkap Pengirim', DummyDataStore().activeUser.nama, Icons.person_outline),
           const SizedBox(height: 16),
           _buildFormField('Metode Pembayaran', 'Transfer Bank', Icons.credit_card, isDropdown: true),
           const SizedBox(height: 16),
           _buildFormField('Bank Asal Pengirim', 'BCA - Bank Central Asia', Icons.account_balance_outlined),
           const SizedBox(height: 16),
-          _buildFormField('Tanggal & Jam Transfer', '24 Sep 2026, 14:30 WIB', Icons.calendar_today_outlined),
+          _buildFormField('Tanggal & Jam Transfer', _currentWibDateLabel(), Icons.calendar_today_outlined),
           const SizedBox(height: 16),
-          _buildFormField('Nominal Ditransfer', 'Rp      175.000', null, isNominal: true),
+          _buildFormField('Nominal Ditransfer', _formatRupiah(_amount), null, isNominal: true),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -501,37 +585,77 @@ class _KonfirmasiPembayaranScreenState extends State<KonfirmasiPembayaranScreen>
       ),
       child: ElevatedButton(
         onPressed: () async {
+          if (_amount <= 0) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Total tagihan saat ini Rp 0. Belum ada tagihan aktif untuk dibayar.'),
+              ),
+            );
+            return;
+          }
+
           showDialog(
             context: context,
             barrierDismissible: false,
             builder: (ctx) => const Center(child: CircularProgressIndicator()),
           );
 
+          final senderName = DummyDataStore().activeUser.nama;
           try {
-            await ApiService().submitManualTransfer(
-              amount: 175000,
+            final res = await ApiService().submitManualTransfer(
+              billId: _billId,
+              amount: _amount,
+              residentName: senderName,
+              unit: _unit,
               bankName: 'BCA',
-              senderAccount: 'Sabila Aulia - BCA 5220391823',
+              senderAccount: '$senderName - BCA',
             );
-          } catch (_) {}
 
-          if (mounted) {
-            Navigator.pop(context); // Tutup loading dialog
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Row(
-                  children: [
-                    Icon(Icons.check_circle, color: Colors.white, size: 20),
-                    SizedBox(width: 8),
-                    Text('Konfirmasi pembayaran berhasil dikirim ke pengurus!'),
-                  ],
+            final trxId = (res['data']?['id'] ?? 'TRX-TF-${DateTime.now().millisecondsSinceEpoch}').toString();
+
+            if (mounted) {
+              Navigator.pop(context); // Tutup loading dialog
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Row(
+                    children: [
+                      Icon(Icons.check_circle, color: Colors.white, size: 20),
+                      SizedBox(width: 8),
+                      Text('Konfirmasi pembayaran berhasil dikirim ke pengurus!'),
+                    ],
+                  ),
+                  backgroundColor: const Color(0xFF1B8754),
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
-                backgroundColor: const Color(0xFF1B8754),
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-            );
-            Navigator.pushNamed(context, '/kwitansi');
+              );
+              Navigator.pushNamed(
+                context,
+                '/kwitansi',
+                arguments: {
+                  'transactionId': trxId,
+                  'amount': _amount,
+                  'month': _month,
+                  'unit': _unit,
+                  'residentName': senderName,
+                  'method': 'BCA Transfer',
+                  'date': _currentWibDateLabel(),
+                  'isPaid': false,
+                },
+              );
+            }
+          } catch (e) {
+            if (mounted) {
+              Navigator.pop(context); // Tutup loading dialog
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(e.toString().replaceAll('Exception: ', '')),
+                  backgroundColor: _redText,
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              );
+            }
           }
         },
         style: ElevatedButton.styleFrom(

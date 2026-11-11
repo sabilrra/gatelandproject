@@ -23,12 +23,17 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
   static const Color _pinkBg = Color(0xFFFFF2F2);
 
   bool _isSearching = false;
+  bool _isLoading = true;
   final TextEditingController _searchController = TextEditingController();
   List<Map<String, dynamic>> _dbRiwayat = [];
 
   @override
   void initState() {
     super.initState();
+    final apiUser = ApiService().currentUser;
+    if (DummyDataStore().currentUser == null && apiUser != null) {
+      DummyDataStore().syncFromBackendUser(apiUser);
+    }
     _loadHistory();
   }
 
@@ -39,63 +44,51 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
   }
 
   Future<void> _loadHistory() async {
+    if (mounted) setState(() => _isLoading = true);
     try {
+      final me = await ApiService().getMe();
+      if (me != null) {
+        DummyDataStore().syncFromBackendUser(me);
+      }
       final list = await ApiService().getMyPaymentHistory();
-      if (list.isNotEmpty && mounted) {
+      if (mounted) {
         setState(() {
           _dbRiwayat = list.map((item) {
             final dt = item['createdAt'] != null ? DateTime.tryParse(item['createdAt'].toString()) : null;
             final isSettled = item['status'] == 'SETTLEMENT';
             final dateStr = dt != null ? '${dt.day.toString().padLeft(2, '0')} ${_monthName(dt.month)} ${dt.year}' : 'Hari ini';
-            final timeStr = dt != null ? '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')} WIB' : '10:00 WIB';
+            final timeStr = dt != null ? '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')} WIB' : '-';
 
-            final rawAmount = item['amount'] ?? 175000;
+            final rawAmount = item['amount'] is int
+                ? item['amount'] as int
+                : int.tryParse(item['amount']?.toString() ?? '0') ?? 0;
             final formatted = rawAmount.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.');
 
             return {
-              'title': 'Keamanan & Kebersihan',
-              'amount': 'Rp. $formatted',
+              'transactionId': item['id'],
+              'title': 'Iuran Keamanan & Kebersihan',
+              'rawAmount': rawAmount,
+              'amount': 'Rp $formatted',
               'method': item['paymentChannel'] ?? 'QRIS',
+              'unit': item['unit'] ?? DummyDataStore().profile.unit,
               'date': dateStr,
               'time': timeStr,
+              'status': item['status'] ?? 'PENDING',
               'isPaid': isSettled,
             };
           }).toList();
+          _isLoading = false;
         });
       }
+      return;
     } catch (_) {}
-  }
 
-  final List<Map<String, dynamic>> _riwayatData = [
-    {
-      'title': 'Keamanan & Kebersihan',
-      'amount': 'Rp. 175.000',
-      'method': 'QRIS',
-      'date': '05 Juli 2026',
-      'time': '10:15 WIB',
-    },
-    {
-      'title': 'Keamanan & Kebersihan',
-      'amount': 'Rp. 175.000',
-      'method': 'BCA VA',
-      'date': '05 Juni 2026',
-      'time': '14:20 WIB',
-    },
-    {
-      'title': 'Keamanan & Kebersihan',
-      'amount': 'Rp. 175.000',
-      'method': 'Transfer Mandiri',
-      'date': '05 Mei 2026',
-      'time': '09:30 WIB',
-    },
-    {
-      'title': 'Keamanan & Kebersihan',
-      'amount': 'Rp. 175.000',
-      'method': 'Tunai RT',
-      'date': '05 Juli 2026',
-      'time': '11:00 WIB',
-    },
-  ];
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -104,10 +97,9 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
   }
 
   List<Map<String, dynamic>> get _filteredRiwayat {
-    final list = _dbRiwayat.isNotEmpty ? _dbRiwayat : _riwayatData;
     final query = _searchController.text.trim().toLowerCase();
-    if (query.isEmpty) return list;
-    return list.where((d) {
+    if (query.isEmpty) return _dbRiwayat;
+    return _dbRiwayat.where((d) {
       final title = d['title'].toString().toLowerCase();
       final method = d['method'].toString().toLowerCase();
       final date = d['date'].toString().toLowerCase();
@@ -124,32 +116,49 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
         child: Column(
           children: [
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _buildTopProfile(),
-                    const SizedBox(height: 24),
-                    _buildHeader(),
-                    const SizedBox(height: 16),
-                    _buildFilterRow(),
-                    const SizedBox(height: 16),
-                    if (items.isEmpty)
-                      Container(
-                        padding: const EdgeInsets.all(24),
-                        alignment: Alignment.center,
-                        child: Text(
-                          'Tidak ada transaksi yang cocok.',
-                          style: GoogleFonts.inter(color: Colors.black54, fontSize: 13),
-                        ),
-                      )
-                    else
-                      ...items.map((data) => _buildRiwayatCard(data)),
-                    const SizedBox(height: 8),
-                    _buildKembaliButton(),
-                    const SizedBox(height: 24),
-                  ],
+              child: RefreshIndicator(
+                onRefresh: _loadHistory,
+                color: _primary,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildTopProfile(),
+                      const SizedBox(height: 24),
+                      _buildHeader(),
+                      const SizedBox(height: 16),
+                      _buildFilterRow(),
+                      const SizedBox(height: 16),
+                      if (_isLoading)
+                        const Padding(
+                          padding: EdgeInsets.all(32),
+                          child: Center(child: CircularProgressIndicator()),
+                        )
+                      else if (items.isEmpty)
+                        Container(
+                          padding: const EdgeInsets.all(24),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: const Color(0xFFE8E8F0)),
+                          ),
+                          child: Text(
+                            _searchController.text.trim().isNotEmpty
+                                ? 'Tidak ada transaksi yang cocok.'
+                                : 'Belum ada riwayat pembayaran.',
+                            style: GoogleFonts.inter(color: Colors.black54, fontSize: 13),
+                          ),
+                        )
+                      else
+                        ...items.map((data) => _buildRiwayatCard(data)),
+                      const SizedBox(height: 8),
+                      _buildKembaliButton(),
+                      const SizedBox(height: 24),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -346,9 +355,21 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
   }
 
   Widget _buildRiwayatCard(Map<String, dynamic> data) {
+    final bool isPaid = data['isPaid'] == true;
     return GestureDetector(
       onTap: () {
-        Navigator.pushNamed(context, '/kwitansi');
+        Navigator.pushNamed(
+          context,
+          '/kwitansi',
+          arguments: {
+            'transactionId': data['transactionId'],
+            'amount': data['rawAmount'] ?? 0,
+            'method': data['method'],
+            'unit': data['unit'],
+            'date': '${data['date']}, ${data['time']}',
+            'isPaid': isPaid,
+          },
+        );
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
@@ -434,27 +455,29 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: _greenTag,
+                    color: isPaid ? _greenTag : const Color(0xFFFFF0D9),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: _greenText.withValues(alpha: 0.2)),
+                    border: Border.all(
+                      color: (isPaid ? _greenText : const Color(0xFFB86E00)).withValues(alpha: 0.25),
+                    ),
                   ),
                   child: Row(
                     children: [
                       Container(
                         width: 6,
                         height: 6,
-                        decoration: const BoxDecoration(
-                          color: _greenDot,
+                        decoration: BoxDecoration(
+                          color: isPaid ? _greenDot : const Color(0xFFD97706),
                           shape: BoxShape.circle,
                         ),
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        'Selesai',
+                        isPaid ? 'Selesai' : 'Menunggu Verifikasi',
                         style: GoogleFonts.inter(
                           fontSize: 10,
                           fontWeight: FontWeight.w600,
-                          color: _greenText,
+                          color: isPaid ? _greenText : const Color(0xFFB86E00),
                         ),
                       ),
                     ],

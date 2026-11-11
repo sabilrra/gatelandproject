@@ -23,22 +23,114 @@ class _LupaKataSandiScreenState extends State<LupaKataSandiScreen> {
     super.dispose();
   }
 
+  Future<void> _showOtpErrorPopup(String title, String message) async {
+    if (!mounted) return;
+    final bool isEmail = _selectedMethod == 'email' || _contactController.text.contains('@');
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFEBEE),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      isEmail ? Icons.mark_email_read_outlined : Icons.chat_bubble_outline,
+                      color: const Color(0xFFD32F2F),
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFFB71C1C),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                message,
+                style: const TextStyle(fontSize: 12.5, color: Colors.black87, height: 1.45),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _primaryColor,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text(
+                    'Perbaiki Input',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _sendVerificationCode() async {
     final input = _contactController.text.trim();
 
     if (input.isEmpty) {
-      setState(() {
-        _errorMessage = _selectedMethod == 'whatsapp'
-            ? 'Nomor WhatsApp atau email tidak boleh kosong.'
-            : 'Email tidak boleh kosong.';
-      });
+      final msg = _selectedMethod == 'whatsapp'
+          ? 'Nomor WhatsApp atau email tidak boleh kosong.'
+          : 'Email tidak boleh kosong.';
+      setState(() => _errorMessage = msg);
+      await _showOtpErrorPopup(
+        _selectedMethod == 'email' ? 'Periksa Alamat Email Anda' : 'Periksa Kontak Anda',
+        msg,
+      );
       return;
     }
 
     if (_selectedMethod == 'email') {
       final emailRegex = RegExp(r'^[\w\-.]+@([\w\-]+\.)+[\w\-]{2,}$');
       if (!emailRegex.hasMatch(input)) {
-        setState(() => _errorMessage = 'Format email tidak valid.');
+        const msg = 'Format email tidak valid. Pastikan menggunakan email yang benar (contoh: nama@gmail.com).';
+        setState(() => _errorMessage = msg);
+        await _showOtpErrorPopup('Format Email Tidak Valid', msg);
+        return;
+      }
+    } else if (input.contains('@')) {
+      final emailRegex = RegExp(r'^[\w\-.]+@([\w\-]+\.)+[\w\-]{2,}$');
+      if (!emailRegex.hasMatch(input)) {
+        const msg = 'Format email tidak valid (contoh: nama@gmail.com).';
+        setState(() => _errorMessage = msg);
+        await _showOtpErrorPopup('Format Email Tidak Valid', msg);
+        return;
+      }
+    } else {
+      final digits = input.replaceAll(RegExp(r'\D'), '');
+      if (digits.length < 9 || digits.length > 15) {
+        const msg = 'Format nomor WhatsApp tidak valid. Minimal 9 digit angka (contoh: 081234567890).';
+        setState(() => _errorMessage = msg);
+        await _showOtpErrorPopup('Format WhatsApp Tidak Valid', msg);
         return;
       }
     }
@@ -73,9 +165,14 @@ class _LupaKataSandiScreenState extends State<LupaKataSandiScreen> {
         },
       );
     } catch (e) {
+      final msg = e.toString().replaceFirst('Exception: ', '');
       setState(() {
-        _errorMessage = e.toString().replaceFirst('Exception: ', '');
+        _errorMessage = msg;
       });
+      await _showOtpErrorPopup(
+        _selectedMethod == 'email' ? 'Verifikasi Email Gagal' : 'Verifikasi WhatsApp Gagal',
+        msg,
+      );
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -417,52 +514,6 @@ class _LupaKataSandiScreenState extends State<LupaKataSandiScreen> {
                 title: 'Email Terdaftar',
                 subtitle: 'Kode OTP 6-digit akan dikirim ke email Anda',
                 caption: 'Estimasi 1 - 2 menit',
-              ),
-              const SizedBox(height: 18),
-
-              // 5. Card: Keamanan Informasi Akun
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEFF3FE),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(
-                      Icons.shield_outlined,
-                      color: Color(0xFF3F51B5),
-                      size: 18,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Keamanan Informasi Akun',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
-                              color: _primaryColor,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          const Text(
-                            'Kode verifikasi bersifat rahasia dan berlaku 5 menit. Petugas GateLand maupun Pengurus RT tidak akan pernah meminta kode OTP Anda.',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: Colors.black54,
-                              height: 1.3,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
               ),
               const SizedBox(height: 24),
 
